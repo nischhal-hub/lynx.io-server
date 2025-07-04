@@ -1,0 +1,14 @@
+import express from "express";
+import VechileController, { VehicleController } from "../controller/VechileController";
+import protectedRoutes from "../middleware/protectedRoutes";
+
+const router= express.Router();
+
+router.route('/').get(VechileController.getAllVehicles)
+.post(protectedRoutes.isUserLoggedIn,VechileController.registerVehicle);
+
+router.route('/:id').get(VechileController.getVehicleById)
+.patch(VechileController.updateVehicleById)
+.delete(VechileController.deleteVehicleById);
+
+export default router;
