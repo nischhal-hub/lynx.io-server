@@ -2,6 +2,9 @@ import express from 'express';
 import dotenv from 'dotenv';
 import authRoutes from './routes/User.Routes';
 import vehicleRoutes from './routes/Vechile.Routes';
+import locationRoutes from './routes/Location.Routes';
+import deviceRoutes from './routes/Device.Routes';
+import routesRoutes from './routes/Routes.Routes';
 
 dotenv.config();
 
@@ -16,8 +19,11 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 setupAssociations();
 
-app.use('/api/auth', authRoutes);
-app.use('/api/vehicle', vehicleRoutes);
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/vehicle', vehicleRoutes);
+app.use('/api/v1/location', locationRoutes);
+app.use('/api/v1/device', deviceRoutes);
+app.use('/api/v1/routes', routesRoutes);
 app.get('/', (req, res) => {
   res.json({
     message: 'Lynx Backend API',

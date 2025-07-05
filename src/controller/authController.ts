@@ -110,7 +110,6 @@ class UserController {
       }
 
       // Debug info
-      console.log('User found:', user);
 
       const isValidPassword = await user.checkPassword(password);
       console.log('Password validation result:', isValidPassword);
@@ -120,10 +119,6 @@ class UserController {
       }
 
       this.createSendToken(user, 200, res);
-      res.status(200).json({
-        status: 'success',
-        message: 'User logged in successfully',
-      });
     }
   );
 

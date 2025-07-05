@@ -6,10 +6,6 @@ import {
   ForeignKey,
   BelongsTo,
 } from 'sequelize-typescript';
-import Vechile from './Vechile.Model';
-import User from './user.Model';
-
-
 @Table({
   tableName: 'routes',
   modelName: 'Route',
@@ -57,21 +53,6 @@ class Route extends Model {
     comment: 'ISO 8601 duration format (e.g., PT2H30M)',
   })
   declare estimated_duration: string;
-
-  @ForeignKey(() => Vechile)
-  @Column({
-    type: DataType.UUID,
-    allowNull: false,
-  })
-  declare vehicle_id: string;
-
-  @ForeignKey(() => User)
-  @Column({
-    type: DataType.UUID,
-    allowNull: true,
-  })
-  declare driver_id: string;
-
   @Column({
     type: DataType.ENUM('planned', 'in_progress', 'completed', 'cancelled'),
     defaultValue: 'planned',

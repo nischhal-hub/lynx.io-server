@@ -12,6 +12,7 @@
   "license": "ISC",
   "dependencies": {
     "@types/nodemailer": "^6.4.17",
+    "@types/socket.io": "^3.0.1",
     "bcryptjs": "^3.0.2",
     "cookie-parser": "^1.4.7",
     "dotenv": "^16.5.0",
@@ -20,7 +21,8 @@
     "nodemailer": "^7.0.3",
     "nodemon": "^3.1.10",
     "pg": "^8.16.2",
-    "sequelize-typescript": "^2.1.6"
+    "sequelize-typescript": "^2.1.6",
+    "socket.io": "^4.8.1"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.9",
