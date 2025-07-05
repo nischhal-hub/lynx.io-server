@@ -10,39 +10,33 @@ export enum Role {
 }
 
 class UserMiddleware {
-  public isUserLoggedIn: RequestHandler = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
+  public isUserLoggedIn: RequestHandler = async (req, res, next) => {
     let token: string | undefined;
 
-    // 1. Try Authorization header
     const rawAuth = req.headers.authorization;
     if (rawAuth?.startsWith('Bearer ')) {
       token = rawAuth.split(' ')[1];
-    }
-
-    // 2. Fallback to cookie
-    if (!token && req.cookies?.jwt) {
-      token = req.cookies.jwt;
+    } else if (req.cookies?.authToken) {
+      token = req.cookies.authToken;
     }
 
     if (!token) {
       res.status(401).json({ message: 'Authentication token missing' });
-      return;
+      return; // no need to return res.status().json(...)
     }
 
     try {
-      const { userId } = jwt.verify(token, envConfig.JWT_SECRET!) as {
-        userId: number;
-      };
+      const decoded = jwt.verify(
+        token,
+        envConfig.JWT_SECRET!
+      ) as jwt.JwtPayload & { id: number };
 
-      const userData = await User.findByPk(userId);
+      const userData = await User.findByPk(decoded.id);
       if (!userData) {
         res.status(404).json({ message: 'User not found' });
         return;
       }
+
       // @ts-ignore
       req.user = {
         id: userData.id,
@@ -51,7 +45,8 @@ class UserMiddleware {
       };
 
       next();
-    } catch {
+    } catch (err) {
+      console.error(err);
       res.status(401).json({ message: 'Token invalid or expired' });
     }
   };

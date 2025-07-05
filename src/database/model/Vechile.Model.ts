@@ -17,9 +17,9 @@ class Vehicle extends Model {
   @Column({
     type: DataType.UUID,
     primaryKey: true,
-    defaultValue: DataType.UUIDV4, // Auto-generate UUID
+    defaultValue: DataType.UUIDV4, 
   })
-  declare id: string; // Changed from number to string for UUID
+  declare id: string; 
 
 
   @Column({

@@ -46,18 +46,18 @@ export function setupAssociations() {
     constraints: true,
   });
 
-  Vehicle.hasOne(Device, {
+  Device.hasOne(Vehicle, {
     foreignKey: 'deviceId',
-    as: 'device',
-    onDelete: 'CASCADE',
-  });
-  Device.belongsTo(Vehicle, {
-    foreignKey: 'vehicleId',
     as: 'vehicle',
+    constraints: true,
     onDelete: 'CASCADE',
   });
 
-  
+  Vehicle.belongsTo(Device, {
+    foreignKey: 'deviceId',
+    as: 'device',
+    constraints: true,
+  });
 
   Device.hasMany(Location, {
     foreignKey: 'deviceId',
@@ -68,21 +68,9 @@ export function setupAssociations() {
 
   Location.belongsTo(Device, {
     foreignKey: 'deviceId',
-    as: 'device',
+    as: 'locations',
     constraints: true,
     onDelete: 'CASCADE',
-  });
-  User.hasMany(Route, {
-    foreignKey: 'driverId',
-    as: 'routes',
-    constraints: true,
-    onDelete: 'CASCADE',
-  });
-
-  Route.belongsTo(User, {
-    foreignKey: 'driverId',
-    as: 'driver',
-    constraints: true,
   });
 
   // Vehicle to Route (One-to-Many)
