@@ -7,7 +7,7 @@ import { Table, Column, Model, DataType } from 'sequelize-typescript';
 })
 class Device extends Model {
   @Column({
-    type: DataType.UUIDV4,
+    type: DataType.UUID,
     // autoIncrement:true,
     defaultValue: DataType.UUIDV4,
     primaryKey: true,

@@ -7,7 +7,7 @@ import { Table, Column, Model, DataType } from 'sequelize-typescript';
 })
 class Location extends Model {
   @Column({
-    type: DataType.UUIDV4,
+    type: DataType.UUID,
     primaryKey: true,
     defaultValue: DataType.UUIDV4,
   })
