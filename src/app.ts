@@ -5,6 +5,7 @@ import vehicleRoutes from './routes/Vechile.Routes';
 import locationRoutes from './routes/Location.Routes';
 import deviceRoutes from './routes/Device.Routes';
 import routesRoutes from './routes/Routes.Routes';
+import userLocationRoutes from './routes/UserLocation.Routes';
 
 dotenv.config();
 
@@ -24,6 +25,7 @@ app.use('/api/v1/vehicle', vehicleRoutes);
 app.use('/api/v1/location', locationRoutes);
 app.use('/api/v1/device', deviceRoutes);
 app.use('/api/v1/routes', routesRoutes);
+app.use('/api/v1/userlocation',userLocationRoutes);
 app.get('/', (req, res) => {
   res.json({
     message: 'Lynx Backend API',

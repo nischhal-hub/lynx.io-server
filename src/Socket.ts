@@ -4,10 +4,10 @@ class SocketService {
   public io: Server;
   public static instance: SocketService;
 
-  public constructor(server: any) {
+  constructor(server: any) {
     this.io = new Server(server, {
       cors: {
-        origin: '*', // Adjust this for production
+        origin: '*',
         methods: ['GET', 'POST', 'PATCH', 'DELETE'],
       },
     });
@@ -38,6 +38,11 @@ class SocketService {
         console.log(`Client ${socket.id} joined location_${locationId}`);
       });
 
+      socket.on('joinUserLocationRoom', (userId: string) => {
+        socket.join(`userlocation_${userId}`);
+        console.log(`Client ${socket.id} joined userlocation_${userId}`);
+      });
+
       socket.on('disconnect', () => {
         console.log('Client disconnected:', socket.id);
       });
@@ -54,6 +59,20 @@ class SocketService {
 
   public emitLocationDeleted(locationId: string) {
     this.io.emit('location_deleted', locationId);
+  }
+
+  public emitUserLocationCreated(userLocation: any) {
+    this.io.emit('userlocation_created', userLocation);
+  }
+
+  public emitUserLocationUpdated(userLocation: any) {
+    this.io
+      .to(`userlocation_${userLocation.userId}`)
+      .emit('userlocation_updated', userLocation);
+  }
+
+  public emitUserLocationDeleted(userLocationId: string) {
+    this.io.emit('userlocation_deleted', userLocationId);
   }
 }
 

@@ -5,6 +5,7 @@ import Device from './model/Device.Model';
 import Location from './model/Location.Model';
 import Route from './model/Routes.Model';
 import Vehicle from './model/Vechile.Model';
+import UserLocation from './model/UserLocation.Model';
 
 console.log(envConfig.connection);
 const sequelize = new Sequelize(envConfig.connection as string, {
@@ -85,6 +86,17 @@ export function setupAssociations() {
     foreignKey: 'vehicleId',
     as: 'vehicle',
     constraints: true,
+  });
+
+  User.hasMany(UserLocation, {
+    foreignKey: 'userId',
+    as: 'userLocations',
+    onDelete: 'CASCADE',
+  });
+
+  UserLocation.belongsTo(User, {
+    foreignKey: 'userId',
+    as: 'user',
   });
 }
 
