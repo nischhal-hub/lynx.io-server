@@ -3,7 +3,6 @@ import http from 'http';
 import { envConfig } from './src/config/config';
 import app from './src/app';
 import SocketService from './src/Socket';
-import SocketNotificationService from './src/controller/Notification.controller'; // import your socket notification service
 
 function startServer() {
   const port = envConfig.port || 5000;
@@ -15,8 +14,6 @@ function startServer() {
   // Initialize Socket.IO
   const socketService = SocketService.initSocketService(server);
 
-  // Initialize notification socket service
-  new SocketNotificationService(socketService.io);
 
   server.listen({ port, host }, () => {
     console.log(`Server is running on http://${host}:${port}`);

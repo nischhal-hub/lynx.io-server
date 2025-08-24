@@ -125,18 +125,21 @@ class User extends Model {
   declare isEmailVerified: boolean;
 
   @BeforeCreate
-  static async hashedPassword(user:User)
-  {
-    if(user.authProvider === 'local')
-    {
-        if (!user.password) {
-        throw new AppError('Password is required for local authentication', 400);
+  static async hashedPassword(user: User) {
+    if (user.authProvider === 'local') {
+      if (!user.password) {
+        throw new AppError(
+          'Password is required for local authentication',
+          400
+        );
       }
-      const hashedPassword= await bcrypt.hash(user.password, 10);
+      const hashedPassword = await bcrypt.hash(user.password, 10);
       user.password = hashedPassword;
-      
     }
   }
+
+  @Column({ type: DataType.STRING, allowNull: true })
+  declare expoPushToken: string;
 
   async checkPassword(password: string): Promise<boolean> {
     if (this.authProvider === 'local') {
@@ -144,20 +147,12 @@ class User extends Model {
     }
     return false;
   }
-  generateAuthToken():string {
+  generateAuthToken(): string {
     const token = jwt.sign({ id: this.id }, envConfig.JWT_SECRET as string, {
       expiresIn: '1h',
     });
     return token;
   }
-
-
 }
 
 export default User;
-
-
-
-
-
-

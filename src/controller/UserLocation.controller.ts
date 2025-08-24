@@ -6,7 +6,7 @@ import UserLocation from '../database/model/UserLocation.Model';
 import User from '../database/model/user.Model';
 import Location from '../database/model/Location.Model';
 import getDistanceKm from '../utils/distanceFormula';
-
+import expoService from '../controller/Notification.controller';
 let socketService: SocketService;
 
 export function initSocketService(server: any) {
@@ -20,9 +20,38 @@ const pickProps = (body: any) => ({
   userId: body.userId,
 });
 
-// Euclidean distance in km approximation
-
 class UserLocationController {
+  // 🔹 reusable helper for nearby calculation
+  private async calculateNearby() {
+    const locations = await Location.findAll();
+    const userLocations = await UserLocation.findAll({
+      include: [{ model: User, as: 'user', attributes: ['id', 'firstName'] }],
+    });
+
+    const nearbyResults: any[] = [];
+
+    for (const loc of locations) {
+      const lat1 = parseFloat(loc.latitude);
+      const lon1 = parseFloat(loc.longitude);
+
+      for (const userLoc of userLocations) {
+        const lat2 = parseFloat(userLoc.latitude);
+        const lon2 = parseFloat(userLoc.longitude);
+
+        const distance = getDistanceKm(lat1, lon1, lat2, lon2);
+
+        nearbyResults.push({
+          locationId: loc.id,
+          userId: userLoc?.userId,
+          //   userName: userLoc?.user?.firstName,
+          distance: `${distance.toFixed(3)} km`,
+        });
+      }
+    }
+
+    return nearbyResults;
+  }
+
   public createUserLocation = asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
       const { latitude, longitude } = req.body;
@@ -43,7 +72,42 @@ class UserLocationController {
         socketService.emitUserLocationCreated(newLocation.toJSON());
       }
 
-      res.status(201).json({ status: 'success', data: newLocation });
+      // 🔹 Calculate nearby only for THIS new location
+      const locations = await Location.findAll();
+      const nearbyResults: any[] = [];
+
+      for (const loc of locations) {
+        const lat1 = parseFloat(loc.latitude);
+        const lon1 = parseFloat(loc.longitude);
+
+        const lat2 = parseFloat(newLocation.latitude);
+        const lon2 = parseFloat(newLocation.longitude);
+
+        const distance = getDistanceKm(lat1, lon1, lat2, lon2);
+
+        nearbyResults.push({
+          locationId: loc.id,
+          userId: newLocation.userId,
+          distance: `${distance.toFixed(3)} km`,
+        });
+
+        // ✅ Send push notification if within 1 km
+        if (distance < 1) {
+          expoService.createNotification(
+            newLocation.userId,
+            'Nearby Alert',
+            `Your vehicle is at a distance of ${distance.toFixed(3)} km`
+          );
+        }
+      }
+
+      res.status(201).json({
+        status: 'success',
+        data: {
+          newLocation,
+          nearbyResults,
+        },
+      });
     }
   );
 
@@ -109,43 +173,6 @@ class UserLocationController {
       }
 
       res.status(204).send();
-    }
-  );
-
-  public checkNearbyLocations = asyncHandler(
-    async (req: Request, res: Response) => {
-      const locations = await Location.findAll();
-      const userLocations = await UserLocation.findAll({
-        include: [{ model: User, as: 'user', attributes: ['id', 'firstName'] }],
-      });
-
-      const nearbyResults: any[] = [];
-
-      for (const loc of locations) {
-        const lat1 = parseFloat(loc.latitude);
-        const lon1 = parseFloat(loc.longitude);
-
-        for (const userLoc of userLocations) {
-            console.log("hello iam user hai",userLoc);
-          const lat2 = parseFloat(userLoc.latitude);
-          const lon2 = parseFloat(userLoc.longitude);
-
-          const distance = getDistanceKm(lat1, lon1, lat2, lon2);
-
-          nearbyResults.push({
-            locationId: loc.id,
-            userId: userLoc?.userId,
-            // userName: userLoc.user.firstName,
-            distance: `${distance.toFixed(3)} km`,
-          });
-        }
-      }
-
-      return res.status(200).json({
-        status: 'success',
-        results: nearbyResults.length,
-        data: nearbyResults,
-      });
     }
   );
 }
