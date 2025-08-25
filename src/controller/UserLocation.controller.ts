@@ -6,6 +6,7 @@ import UserLocation from '../database/model/UserLocation.Model';
 import User from '../database/model/user.Model';
 import Location from '../database/model/Location.Model';
 import getDistanceKm from '../utils/distanceFormula';
+import SocketNotificationService from '../controller/Notification.controller';
 
 let socketService: SocketService;
 
@@ -20,30 +21,63 @@ const pickProps = (body: any) => ({
   userId: body.userId,
 });
 
-// Euclidean distance in km approximation
-
 class UserLocationController {
   public createUserLocation = asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
       const { latitude, longitude } = req.body;
+      const userId = req.user?.id;
 
-      if (!latitude || !longitude || !req.user?.id) {
-        return next(
-          new AppError('Latitude, longitude, and userId are required', 400)
-        );
+      if (!latitude || !longitude || !userId) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Latitude, longitude, and userId are required',
+        });
       }
 
+      // 1️⃣ Save new user location
       const newLocation = await UserLocation.create({
+        userId,
         latitude: String(latitude),
         longitude: String(longitude),
-        userId: req.user.id,
       });
 
-      if (socketService) {
-        socketService.emitUserLocationCreated(newLocation.toJSON());
+      // 2️⃣ Calculate nearby locations
+      const locations = await Location.findAll();
+      const nearbyResults: any[] = [];
+
+      for (const loc of locations) {
+        const lat1 = parseFloat(loc.latitude);
+        const lon1 = parseFloat(loc.longitude);
+        const lat2 = parseFloat(newLocation.latitude);
+        const lon2 = parseFloat(newLocation.longitude);
+
+        const distance = getDistanceKm(lat1, lon1, lat2, lon2);
+
+        nearbyResults.push({
+          locationId: loc.id,
+          userId: newLocation.userId,
+          distance: `${distance.toFixed(3)} km`,
+        });
+
+        // 3️⃣ Send notification if within 1 km
+        if (Number(distance) <200 ) {
+          const notificationService = SocketNotificationService.getInstance();
+          await notificationService.createNotification(
+            String(req.user?.id),
+            'Nearby Alert',
+            `Your vehicle is at a distance of ${distance.toFixed(3)} km`
+          );
+        }
       }
 
-      res.status(201).json({ status: 'success', data: newLocation });
+      // 4️⃣ Respond with new location + nearby results
+      res.status(201).json({
+        status: 'success',
+        data: {
+          newLocation,
+          nearbyResults,
+        },
+      });
     }
   );
 
@@ -126,7 +160,6 @@ class UserLocationController {
         const lon1 = parseFloat(loc.longitude);
 
         for (const userLoc of userLocations) {
-            console.log("hello iam user hai",userLoc);
           const lat2 = parseFloat(userLoc.latitude);
           const lon2 = parseFloat(userLoc.longitude);
 
@@ -135,13 +168,12 @@ class UserLocationController {
           nearbyResults.push({
             locationId: loc.id,
             userId: userLoc?.userId,
-            // userName: userLoc.user.firstName,
             distance: `${distance.toFixed(3)} km`,
           });
         }
       }
 
-      return res.status(200).json({
+      res.status(200).json({
         status: 'success',
         results: nearbyResults.length,
         data: nearbyResults,

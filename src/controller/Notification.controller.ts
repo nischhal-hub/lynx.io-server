@@ -1,12 +1,26 @@
 import { Server, Socket } from 'socket.io';
 import Notification from '../database/model/Notification.Model';
+import User from '../database/model/user.Model';
+import { sendExpoNotification } from '../utils/ExpoNotification';
 
 export default class SocketNotificationService {
-  private io: Server;
+  private static instance: SocketNotificationService;
+  public io: Server;
 
-  constructor(io: Server) {
+  // Private constructor for singleton
+  private constructor(io: Server) {
     this.io = io;
     this.initialize();
+  }
+
+  // Singleton access method
+  public static getInstance(io?: Server): SocketNotificationService {
+    if (!SocketNotificationService.instance) {
+      if (!io)
+        throw new Error('Socket IO instance is required for initialization');
+      SocketNotificationService.instance = new SocketNotificationService(io);
+    }
+    return SocketNotificationService.instance;
   }
 
   private initialize() {
@@ -19,7 +33,6 @@ export default class SocketNotificationService {
         console.log(`Client ${socket.id} joined user_${userId}`);
       });
 
-      // CRUD operations
       this.handleCreateNotification(socket);
       this.handleReadNotifications(socket);
       this.handleMarkAsRead(socket);
@@ -31,28 +44,14 @@ export default class SocketNotificationService {
     });
   }
 
+  // ---------------------- Create Notification ----------------------
   private handleCreateNotification(socket: Socket) {
-    console.log('handleCreateNotification');
-
     socket.on('notification:create', async (payload, callback) => {
       try {
-        console.log('Received payload:', payload);
-        console.log('Payload type:', typeof payload);
-
-        // Parse string into object if needed
-        if (typeof payload === 'string') {
-          payload = JSON.parse(payload);
-        }
-
+        if (typeof payload === 'string') payload = JSON.parse(payload);
         const { userId, title, message } = payload;
-
-        if (
-          userId === undefined ||
-          title === undefined ||
-          message === undefined
-        ) {
-          throw new Error('Missing required fields: userId, title, message');
-        }
+        if (!userId || !title || !message)
+          throw new Error('Missing required fields');
 
         const notification = await Notification.create({
           userId,
@@ -60,24 +59,25 @@ export default class SocketNotificationService {
           message,
         });
 
+        // Emit to user room
         this.io.to(`user_${userId}`).emit('notification:created', notification);
-        console.log(
-          this.io
-            .to(`user_${userId}`)
-            .emit('notification:created', notification)
-        );
+
+        // Send push if token exists
+        const user = await User.findByPk(userId);
+        if (user?.expoPushToken) {
+          await sendExpoNotification(user.expoPushToken, title, message);
+        }
 
         callback?.({ status: 'success', data: notification });
       } catch (error: any) {
-        console.error('Notification creation error:', error);
         callback?.({ status: 'error', message: error.message });
       }
     });
   }
 
+  // ---------------------- Read Notifications ----------------------
   private handleReadNotifications(socket: Socket) {
     socket.on('notification:readAll', async (userId: number, callback) => {
-      console.log('notification:readAll', userId);
       try {
         const notifications = await Notification.findAll({
           where: { userId },
@@ -90,6 +90,7 @@ export default class SocketNotificationService {
     });
   }
 
+  // ---------------------- Mark as Read ----------------------
   private handleMarkAsRead(socket: Socket) {
     socket.on('notification:markAsRead', async (id: string, callback) => {
       try {
@@ -114,6 +115,7 @@ export default class SocketNotificationService {
     });
   }
 
+  // ---------------------- Delete Notification ----------------------
   private handleDeleteNotification(socket: Socket) {
     socket.on('notification:delete', async (id: number, callback) => {
       try {
@@ -125,7 +127,6 @@ export default class SocketNotificationService {
           });
 
         await notification.destroy();
-
         this.io
           .to(`user_${notification.userId}`)
           .emit('notification:deleted', { id });
@@ -135,5 +136,22 @@ export default class SocketNotificationService {
         callback?.({ status: 'error', message: error.message });
       }
     });
+  }
+
+  // ---------------------- Public method to create notification from code ----------------------
+  public async createNotification(
+    userId: string,
+    title: string,
+    message: string
+  ) {
+    const notification = await Notification.create({ userId, title, message });
+    this.io.to(`user_${userId}`).emit('notification:created', notification);
+
+    const user = await User.findByPk(userId);
+    if (user?.expoPushToken) {
+      await sendExpoNotification(user.expoPushToken, title, message);
+    }
+
+    return notification;
   }
 }
