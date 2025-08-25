@@ -86,6 +86,11 @@ class User extends Model {
     allowNull: true,
   })
   declare profilePicture: string | null;
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+  })
+  declare expoPushToken: string;
 
   @Column({
     type: DataType.STRING,
@@ -125,16 +130,16 @@ class User extends Model {
   declare isEmailVerified: boolean;
 
   @BeforeCreate
-  static async hashedPassword(user:User)
-  {
-    if(user.authProvider === 'local')
-    {
-        if (!user.password) {
-        throw new AppError('Password is required for local authentication', 400);
+  static async hashedPassword(user: User) {
+    if (user.authProvider === 'local') {
+      if (!user.password) {
+        throw new AppError(
+          'Password is required for local authentication',
+          400
+        );
       }
-      const hashedPassword= await bcrypt.hash(user.password, 10);
+      const hashedPassword = await bcrypt.hash(user.password, 10);
       user.password = hashedPassword;
-      
     }
   }
 
@@ -144,20 +149,12 @@ class User extends Model {
     }
     return false;
   }
-  generateAuthToken():string {
+  generateAuthToken(): string {
     const token = jwt.sign({ id: this.id }, envConfig.JWT_SECRET as string, {
       expiresIn: '1h',
     });
     return token;
   }
-
-
 }
 
 export default User;
-
-
-
-
-
-
