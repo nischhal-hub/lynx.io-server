@@ -11,43 +11,48 @@ export function initSocketService(server: any) {
 }
 
 const pickProps = (body: any) => ({
-  latitude: body.latitude?.toString(),
-  longitude: body.longitude?.toString(),
-  altitude: body.altitude?.toString() ?? null,
-  speed: body.speed?.toString() ?? null,
+  latitude: String(body.lat ?? body.latitude),
+  longitude: String(body.lng ?? body.longitude),
+  altitude: body.altitude ? String(body.altitude) : null,
+  speed: body.speed ? String(body.speed) : null,
 });
 
 class LocationController {
-  // src/controller/Location.controller.ts
-  public createLocation = asyncHandler(async (req, res, next) => {
-    const { latitude, longitude, altitude, speed } = req.body;
+  public createLocation = asyncHandler(
+    async (req: Request, res: Response, next: NextFunction) => {
+      const locations = req.body;
 
-    // Validate input
-    if (!latitude || !longitude) {
-      return next(new AppError('Latitude and longitude are required', 400));
+      if (!Array.isArray(locations) || locations.length === 0) {
+        return next(new AppError('Array of location objects is required', 400));
+      }
+
+      try {
+        const formattedLocations = locations.map((loc) => pickProps(loc));
+
+        const newLocations = await Location.bulkCreate(formattedLocations);
+
+        if (socketService) {
+          // Emit only latest to avoid spam
+          const latest = newLocations[newLocations.length - 1];
+          socketService.io.emit('location_created', latest.toJSON());
+        }
+
+        res.status(201).json({
+          status: 'success',
+          results: newLocations.length,
+          data: newLocations,
+        });
+      } catch (error: any) {
+        console.error('Database operation failed:', error);
+        return next(
+          new AppError(
+            error.message || 'Failed to create location records',
+            500
+          )
+        );
+      }
     }
-
-    try {
-      const newLocation = await Location.create({
-        latitude: String(latitude),
-        longitude: String(longitude),
-        altitude: altitude ? String(altitude) : null,
-        speed: speed ? String(speed) : null,
-      });
-
-      // Emit socket event
-      const socketService = SocketService.getInstance();
-      socketService.io.emit('location_created', newLocation.toJSON());
-
-      res.status(201).json({
-        status: 'success',
-        data: newLocation,
-      });
-    } catch (error) {
-      console.error('Database operation failed:', error);
-      return next(new AppError('Failed to create location record', 500));
-    }
-  });
+  );
 
   public getAllLocations = asyncHandler(
     async (_req: Request, res: Response) => {
