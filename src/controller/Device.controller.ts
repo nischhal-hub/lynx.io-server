@@ -8,8 +8,7 @@ import Device from '../database/model/Device.Model';
 class DeviceController {
   public registerDevice = asyncHandler(async (req: Request, res: Response) => {
     const { deviceName, status } = req.body;
-    console.log("haha",req.body);
-    if (!deviceName || !status) throw new AppError('deviceName is required', 400);
+  if (!deviceName || !status) throw new AppError('deviceName is required', 400);
 
     const device = await Device.create({ deviceName, status });
     res.status(201).json({ status: 'true', data: device });
