@@ -389,6 +389,7 @@ class UserController {
 
   // 2. Update Profile
   public updateProfile = asyncHandler(async (req: Request, res: Response) => {
+    console.log(req.body);
     const userId = req.user?.id;
     if (!userId) {
       return res.status(401).json({ message: 'Not authenticated' });

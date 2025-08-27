@@ -7,13 +7,11 @@ export default class SocketNotificationService {
   private static instance: SocketNotificationService;
   public io: Server;
 
-  // Private constructor for singleton
   private constructor(io: Server) {
     this.io = io;
     this.initialize();
   }
 
-  // Singleton access method
   public static getInstance(io?: Server): SocketNotificationService {
     if (!SocketNotificationService.instance) {
       if (!io)
@@ -25,9 +23,8 @@ export default class SocketNotificationService {
 
   private initialize() {
     this.io.on('connection', (socket: Socket) => {
-      console.log('Client connected for notifications:', socket.id);
+      console.log('Client connected:', socket.id);
 
-      // Join user room
       socket.on('joinUserRoom', (userId: string) => {
         socket.join(`user_${userId}`);
         console.log(`joined user_${userId}`);
@@ -59,10 +56,11 @@ export default class SocketNotificationService {
           message,
         });
 
-        // Emit to user room
+        // Emit via socket
         this.io.to(`user_${userId}`).emit('notification:created', notification);
 
-        // Send push if token exists
+        // Expo push
+        
         const user = await User.findByPk(userId);
         if (user?.expoPushToken) {
           await sendExpoNotification(user.expoPushToken, title, message);
@@ -75,13 +73,14 @@ export default class SocketNotificationService {
     });
   }
 
-  // ---------------------- Read Notifications ----------------------
+  // ---------------------- Read ----------------------
   private handleReadNotifications(socket: Socket) {
     socket.on('notification:readAll', async (userId: number, callback) => {
-      console.log("You hit hai babau",userId)
+      console.log('hahahah', userId);
+      const user = Number(userId);
       try {
         const notifications = await Notification.findAll({
-          // where: { userId:user },
+          where: { userId: user },
           order: [['createdAt', 'DESC']],
         });
         callback?.({ status: 'success', data: notifications });
@@ -97,10 +96,7 @@ export default class SocketNotificationService {
       try {
         const notification = await Notification.findByPk(id);
         if (!notification)
-          return callback?.({
-            status: 'error',
-            message: 'Notification not found',
-          });
+          return callback?.({ status: 'error', message: 'Not found' });
 
         notification.isRead = true;
         await notification.save();
@@ -108,7 +104,6 @@ export default class SocketNotificationService {
         this.io
           .to(`user_${notification.userId}`)
           .emit('notification:updated', notification);
-
         callback?.({ status: 'success', data: notification });
       } catch (error: any) {
         callback?.({ status: 'error', message: error.message });
@@ -116,30 +111,26 @@ export default class SocketNotificationService {
     });
   }
 
-  // ---------------------- Delete Notification ----------------------
+  // ---------------------- Delete ----------------------
   private handleDeleteNotification(socket: Socket) {
     socket.on('notification:delete', async (id: number, callback) => {
       try {
         const notification = await Notification.findByPk(id);
         if (!notification)
-          return callback?.({
-            status: 'error',
-            message: 'Notification not found',
-          });
+          return callback?.({ status: 'error', message: 'Not found' });
 
         await notification.destroy();
         this.io
           .to(`user_${notification.userId}`)
           .emit('notification:deleted', { id });
-
-        callback?.({ status: 'success', data: null });
+        callback?.({ status: 'success' });
       } catch (error: any) {
         callback?.({ status: 'error', message: error.message });
       }
     });
   }
 
-  // ---------------------- Public method to create notification from code ----------------------
+  // ---------------------- Public helper ----------------------
   public async createNotification(
     userId: string,
     title: string,
