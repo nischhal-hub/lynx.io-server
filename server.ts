@@ -3,24 +3,23 @@ import http from 'http';
 import { envConfig } from './src/config/config';
 import app from './src/app';
 import SocketService from './src/Socket';
-import SocketNotificationService from './src/controller/Notification.controller'; // import your socket notification service
+import SocketNotificationService from './src/controller/Notification.controller';
 
 function startServer() {
   const port = envConfig.port || 5000;
   const host = '192.168.1.73';
 
-  // Create HTTP server
   const server = http.createServer(app);
 
-  // Initialize Socket.IO
+  // Initialize Socket.IO for locations
   const socketService = SocketService.initSocketService(server);
 
-  // Initialize notification socket service
-  new SocketNotificationService(socketService.io);
+  // Initialize SocketNotificationService singleton
+  SocketNotificationService.getInstance(socketService.io);
 
   server.listen({ port, host }, () => {
-    console.log(`Server is running on http://${host}:${port}`);
-    console.log(`WebSocket server is running on ws://${host}:${port}`);
+    console.log(`Server running at http://${host}:${port}`);
+    console.log(`WebSocket running at ws://${host}:${port}`);
   });
 }
 

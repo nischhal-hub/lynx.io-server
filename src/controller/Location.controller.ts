@@ -1,54 +1,50 @@
 import { Request, Response, NextFunction } from 'express';
-import SocketService from '../Socket';
 import asyncHandler from '../utils/AsyncHandler';
 import AppError from '../utils/AppError';
-import Location from '../database/model/Location.Model';
+import Location from '../database/model/Location.Model'; // Vehicle locations
+import SocketService from '../Socket';
 
 let socketService: SocketService;
 
 export function initSocketService(server: any) {
-  socketService = new SocketService(server);
+  socketService = SocketService.initSocketService(server);
 }
 
 const pickProps = (body: any) => ({
-  latitude: body.latitude?.toString(),
-  longitude: body.longitude?.toString(),
-  altitude: body.altitude?.toString() ?? null,
-  speed: body.speed?.toString() ?? null,
+  latitude: String(body.lat ?? body.latitude),
+  longitude: String(body.lng ?? body.longitude),
+  altitude: body.altitude ? String(body.altitude) : null,
+  speed: body.speed ? String(body.speed) : null,
 });
 
 class LocationController {
-  // src/controller/Location.controller.ts
-  public createLocation = asyncHandler(async (req, res, next) => {
-    const { latitude, longitude, altitude, speed } = req.body;
+  // Create new vehicle locations (bulk)
+  public createLocation = asyncHandler(
+    async (req: Request, res: Response, next: NextFunction) => {
+      const locations = req.body;
 
-    // Validate input
-    if (!latitude || !longitude) {
-      return next(new AppError('Latitude and longitude are required', 400));
-    }
+      if (!Array.isArray(locations) || locations.length === 0) {
+        return next(new AppError('Array of location objects is required', 400));
+      }
 
-    try {
-      const newLocation = await Location.create({
-        latitude: String(latitude),
-        longitude: String(longitude),
-        altitude: altitude ? String(altitude) : null,
-        speed: speed ? String(speed) : null,
-      });
+      const formattedLocations = locations.map((loc) => pickProps(loc));
+      const newLocations = await Location.bulkCreate(formattedLocations);
 
-      // Emit socket event
-      const socketService = SocketService.getInstance();
-      socketService.io.emit('location_created', newLocation.toJSON());
+      // Emit only the latest vehicle location to front-end
+      if (socketService && newLocations.length > 0) {
+        const latest = newLocations[newLocations.length - 1];
+        socketService.io.emit('vehicle_location_updated', latest.toJSON());
+      }
 
       res.status(201).json({
         status: 'success',
-        data: newLocation,
+        results: newLocations.length,
+        data: newLocations,
       });
-    } catch (error) {
-      console.error('Database operation failed:', error);
-      return next(new AppError('Failed to create location record', 500));
     }
-  });
+  );
 
+  // Get all vehicle locations
   public getAllLocations = asyncHandler(
     async (_req: Request, res: Response) => {
       const locations = await Location.findAll({
@@ -62,44 +58,50 @@ class LocationController {
     }
   );
 
+  // Get latest vehicle location
   public getLatestLocation = asyncHandler(
     async (_req: Request, res: Response) => {
       const latest = await Location.findOne({ order: [['createdAt', 'DESC']] });
-      if (!latest) throw new AppError('No location data yet', 404);
+      if (!latest) throw new AppError('No vehicle location data yet', 404);
 
       res.status(200).json({ status: 'success', data: latest });
     }
   );
 
+  // Get vehicle location by ID
   public getLocationById = asyncHandler(async (req: Request, res: Response) => {
     const location = await Location.findByPk(req.params.id);
-    if (!location) throw new AppError('Location not found', 404);
+    if (!location) throw new AppError('Vehicle location not found', 404);
 
     res.status(200).json({ status: 'success', data: location });
   });
 
+  // Update vehicle location
   public updateLocation = asyncHandler(async (req: Request, res: Response) => {
     const location = await Location.findByPk(req.params.id);
-    if (!location) throw new AppError('Location not found', 404);
+    if (!location) throw new AppError('Vehicle location not found', 404);
 
     const updatedLocation = await location.update(pickProps(req.body));
 
     if (socketService) {
-      socketService.emitLocationUpdated(updatedLocation.toJSON());
+      socketService.io.emit(
+        'vehicle_location_updated',
+        updatedLocation.toJSON()
+      );
     }
 
     res.status(200).json({ status: 'success', data: updatedLocation });
   });
 
+  // Delete vehicle location
   public deleteLocation = asyncHandler(async (req: Request, res: Response) => {
     const location = await Location.findByPk(req.params.id);
-    if (!location) throw new AppError('Location not found', 404);
+    if (!location) throw new AppError('Vehicle location not found', 404);
 
     await location.destroy();
 
-    // Emit real-time event
     if (socketService) {
-      socketService.emitLocationDeleted(req.params.id);
+      socketService.io.emit('vehicle_location_deleted', req.params.id);
     }
 
     res.status(204).send();
