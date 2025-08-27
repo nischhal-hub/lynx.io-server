@@ -30,7 +30,7 @@ export default class SocketNotificationService {
       // Join user room
       socket.on('joinUserRoom', (userId: string) => {
         socket.join(`user_${userId}`);
-        console.log(`Client ${socket.id} joined user_${userId}`);
+        console.log(`joined user_${userId}`);
       });
 
       this.handleCreateNotification(socket);
@@ -78,9 +78,10 @@ export default class SocketNotificationService {
   // ---------------------- Read Notifications ----------------------
   private handleReadNotifications(socket: Socket) {
     socket.on('notification:readAll', async (userId: number, callback) => {
+      console.log("You hit hai babau",userId)
       try {
         const notifications = await Notification.findAll({
-          where: { userId },
+          // where: { userId:user },
           order: [['createdAt', 'DESC']],
         });
         callback?.({ status: 'success', data: notifications });

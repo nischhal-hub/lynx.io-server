@@ -7,6 +7,9 @@ import asyncHandler from '../utils/AsyncHandler';
 import AppError from '../utils/AppError';
 import { sendMail } from '../utils/sendEmail';
 import generateOtp from '../utils/OtpGenerator';
+import passport from 'passport';
+import { getDataUri } from '../utils/datauri';
+import cloudinary from '../utils/claudnary';
 
 const cookieOptions = {
   expires: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days
@@ -265,10 +268,10 @@ class UserController {
   );
   public handleSaveExpoToken = asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
-      console.log("aaaaaaaaaaaaaa");
+      console.log('aaaaaaaaaaaaaa');
       const { expoToken } = req.body;
       const userId = req.user?.id;
-      console.log("mihi",userId);
+      console.log('mihi', userId);
       if (!userId) {
         return res.status(401).json({ message: 'User not authenticated' });
       }
@@ -280,8 +283,188 @@ class UserController {
       await user.save();
       res.status(200).json({ message: 'Expo token saved successfully' });
     }
-  )
+  );
+
+  public googleAuth(req: Request, res: Response, next: NextFunction) {
+    passport.authenticate('google', { scope: ['profile', 'email'] })(
+      req,
+      res,
+      next
+    );
   }
 
+  public googleAuthCallback = [
+    passport.authenticate('google', {
+      session: false,
+      failureRedirect: '/login',
+    }),
+    asyncHandler(async (req: Request, res: Response) => {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Authentication failed' });
+      }
+
+      // Extract the user id from the Passport Google profile object
+      const googleProfile = req.user as {
+        id: number;
+        email?: string;
+        [key: string]: any;
+      };
+
+      // Fetch the full Sequelize User instance from the database
+      const user = await User.findByPk(googleProfile.id);
+      if (!user) {
+        return res.status(401).json({ message: 'User not found' });
+      }
+
+      // Generate JWT using your User model method
+      const token = user.generateAuthToken();
+
+      // Redirect to frontend with token
+      const redirectUri =
+        (req.query.redirect_uri as string) || 'exp://127.0.0.1:19000';
+      res.redirect(`${redirectUri}?token=${token}`);
+    }),
+  ];
+
+  public uploadImage = asyncHandler(
+    async (req: Request, res: Response, next: NextFunction) => {
+      const userId = req.user?.id;
+
+      if (!userId) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ message: 'No file uploaded' });
+      }
+
+      try {
+        // Convert file to data URI
+        const fileUri = getDataUri(req.file);
+
+        // Upload to Cloudinary
+        const cloudResponse = await cloudinary.uploader.upload(fileUri.content);
+
+        // Update user's profilePicture
+        const user = await User.findByPk(userId);
+        if (!user) {
+          return res.status(404).json({ message: 'User not found' });
+        }
+
+        user.profilePicture = cloudResponse.secure_url;
+        await user.save();
+
+        return res.status(200).json({
+          status: 'success',
+          message: 'Profile picture updated',
+          profilePicture: user.profilePicture,
+        });
+      } catch (error: any) {
+        console.error('Cloudinary Upload Error:', error);
+        return res.status(500).json({
+          status: 'error',
+          message: 'Image upload failed',
+          error: error.message,
+        });
+      }
+    }
+  );
+  public getProfile = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user?.id;
+    console.log('Good you hit that');
+    if (!userId) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+
+    const user = await User.findByPk(userId, {
+      attributes: { exclude: ['password', 'otp', 'otpGeneratedTime'] },
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.status(200).json({ status: 'success', data: user });
+  });
+
+  // 2. Update Profile
+  public updateProfile = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+
+    const { firstName, lastName, phoneNumber, address } = req.body;
+
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    user.firstName = firstName || user.firstName;
+    user.lastName = lastName || user.lastName;
+    user.phoneNumber = phoneNumber || user.phoneNumber;
+    user.address = address || user.address;
+
+    await user.save();
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Profile updated successfully',
+      data: user,
+    });
+  });
+
+  // 4. Change Password
+  public changePassword = asyncHandler(async (req: Request, res: Response) => {
+    console.log(req.body);
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+
+    const { oldPassword, newPassword } = req.body;
+
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const isValidPassword = await user.checkPassword(oldPassword);
+    if (!isValidPassword) {
+      return res.status(401).json({ message: 'Incorrect old password' });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 12);
+    await user.save();
+
+    res.status(200).json({ message: 'Password updated successfully' });
+  });
+
+  // 5. Delete Account
+  public deleteAccount = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    await user.destroy();
+
+    res.clearCookie('authToken');
+    res.status(200).json({
+      status: 'success',
+      message: 'Account deleted successfully',
+    });
+  });
+}
 
 export default new UserController();
