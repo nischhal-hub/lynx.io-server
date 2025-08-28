@@ -11,6 +11,7 @@ export function initSocketService(server: any) {
 }
 
 const pickProps = (body: any) => ({
+  deviceId: body.deviceId,
   latitude: String(body.lat ?? body.latitude),
   longitude: String(body.lng ?? body.longitude),
   altitude: body.altitude ? String(body.altitude) : null,

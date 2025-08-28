@@ -23,7 +23,7 @@ export default class SocketNotificationService {
 
   private initialize() {
     this.io.on('connection', (socket: Socket) => {
-      console.log('Client connected:', socket.id);
+      console.log('Notification client connected:', socket?.id);
 
       socket.on('joinUserRoom', (userId: string) => {
         socket.join(`user_${userId}`);
@@ -49,18 +49,14 @@ export default class SocketNotificationService {
         const { userId, title, message } = payload;
         if (!userId || !title || !message)
           throw new Error('Missing required fields');
-
         const notification = await Notification.create({
           userId,
           title,
           message,
         });
-
         // Emit via socket
         this.io.to(`user_${userId}`).emit('notification:created', notification);
 
-        // Expo push
-        
         const user = await User.findByPk(userId);
         if (user?.expoPushToken) {
           await sendExpoNotification(user.expoPushToken, title, message);
