@@ -1,52 +1,77 @@
-import axios from 'axios';
+import express from "express";
+import path from "path";
+import axios from "axios";
 
+const app = express();
+const PORT = 4000;
 const BACKEND_API = "http://192.168.1.80:3000/api/v1/location";
 
+app.use(express.json());
+app.use(express.static("public")); // serve UI files from /public
 
-// Generate fake GPS points
-function generateFakeGPS() {
-  const latitude = 27.7172 + (Math.random() * 0.01); // Kathmandu area
-  const longitude = 85.3240 + (Math.random() * 0.01);
-  const speed = (Math.random() * 60).toFixed(2); // 0–60 km/h
+// Store simulations in memory
+let simulations = {};
 
-  return { latitude, longitude, speed: parseFloat(speed) };
+function generateFakeGPS(start, end, deviceId) {
+  const lat = start.lat + (Math.random() * (end.lat - start.lat));
+  const lng = start.lng + (Math.random() * (end.lng - start.lng));
+  const speed = (Math.random() * 60).toFixed(2);
+  return { lat, lng, speed: parseFloat(speed),deviceId };
 }
 
 async function sendBatch(batch) {
   try {
-    const response = await axios.post(BACKEND_API, batch, {
-      headers: {
-        "Content-Type": "application/json"
-      }
-    });
-
-    console.log("✅ Uploaded:", response.data);
+    const response = await axios.post(BACKEND_API, batch );
+    console.log(`✅ Uploaded for ${deviceId}:`, response.data);
   } catch (error) {
-    console.error("❌ Upload failed:", error.response?.data || error.message);
+    console.error(`❌ Upload failed `, error.response?.data || error.message);
   }
 }
 
-// Main simulation
-async function main() {
-//   let buffer = [];
+// Start simulation
+app.post("/start", (req, res) => {
+  const { deviceIds, startLocation, endLocation } = req.body;
 
-  setInterval(async () => {
-    const gpsPoint = generateFakeGPS();
-    // buffer.push(gpsPoint);
-    await sendBatch(gpsPoint);
-    console.log("Generated: ", gpsPoint);
-  }, 5000);
+  deviceIds.forEach((id) => {
+    let buffer = [];
 
-//   setInterval(async () => {
-//     // Upload every 30s
-//     if (buffer.length > 0) {
-//       const batch = [...buffer];
-//       buffer = []; // clear buffer
-//       console.log("Sending batch:", batch);
+    // generate GPS
+    const gpsInterval = setInterval(() => {
+      const gpsPoint = generateFakeGPS(startLocation, endLocation, id);
+      buffer.push(gpsPoint);
+      console.log(`Generated [${id}]`, gpsPoint);
+    }, 2000);
 
-//       await sendBatch(batch);
-//     }
-//   }, 30000);
-}
+    // send batch
+    const batchInterval = setInterval(() => {
+      if (buffer.length > 0) {
+        const batch = [...buffer];
+        console.log(batch);
+        buffer = [];
+        sendBatch( batch);
+      }
+    }, 6000);
 
-main();
+    simulations[id] = { gpsInterval, batchInterval };
+  });
+
+  res.json({ message: "Simulation started", devices: deviceIds });
+});
+
+// Stop simulation
+app.post("/stop", (req, res) => {
+  const { deviceIds } = req.body;
+  deviceIds.forEach((id) => {
+    if (simulations[id]) {
+      clearInterval(simulations[id].gpsInterval);
+      clearInterval(simulations[id].batchInterval);
+      delete simulations[id];
+      console.log(`🛑 Stopped simulation for ${id}`);
+    }
+  });
+  res.json({ message: "Simulation stopped", devices: deviceIds });
+});
+
+app.listen(PORT, () => {
+  console.log(`🚀 Simulator UI running at http://localhost:${PORT}`);
+});
