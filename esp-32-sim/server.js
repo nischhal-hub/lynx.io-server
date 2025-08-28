@@ -20,8 +20,11 @@ function generateFakeGPS(start, end, deviceId) {
 }
 
 async function sendBatch(batch) {
+  console.log(JSON.stringify(batch));
   try {
-    const response = await axios.post(BACKEND_API, batch );
+    const response = await axios.post(BACKEND_API, JSON.stringify(batch),{
+  headers: { "Content-Type": "application/json" }
+});
     console.log(`✅ Uploaded for ${deviceId}:`, response.data);
   } catch (error) {
     console.error(`❌ Upload failed `, error.response?.data || error.message);
