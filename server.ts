@@ -4,18 +4,19 @@ import { envConfig } from './src/config/config';
 import app from './src/app';
 import SocketService from './src/Socket';
 import SocketNotificationService from './src/controller/Notification.controller';
+import LocationController from './src/controller/Location.controller';
 
 function startServer() {
   const port = envConfig.port || 5000;
-  const host = '192.168.1.73';
+  const host = '192.168.1.7';
 
   const server = http.createServer(app);
 
   // Initialize Socket.IO for locations
   const socketService = SocketService.initSocketService(server);
 
-  // Initialize SocketNotificationService singleton
   SocketNotificationService.getInstance(socketService.io);
+  LocationController.getInstance(socketService.io);
 
   server.listen({ port, host }, () => {
     console.log(`Server running at http://${host}:${port}`);
