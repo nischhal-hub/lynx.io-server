@@ -1,111 +1,91 @@
-import { Request, Response, NextFunction } from 'express';
-import asyncHandler from '../utils/AsyncHandler';
-import AppError from '../utils/AppError';
-import Location from '../database/model/Location.Model'; // Vehicle locations
-import SocketService from '../Socket';
-
-let socketService: SocketService;
-
-export function initSocketService(server: any) {
-  socketService = SocketService.initSocketService(server);
-}
+import { Server, Socket } from 'socket.io';
+import Location from '../database/model/Location.Model';
 
 const pickProps = (body: any) => ({
+  deviceId: body.deviceId,
   latitude: String(body.lat ?? body.latitude),
   longitude: String(body.lng ?? body.longitude),
   altitude: body.altitude ? String(body.altitude) : null,
   speed: body.speed ? String(body.speed) : null,
 });
 
-class LocationController {
-  // Create new vehicle locations (bulk)
-  public createLocation = asyncHandler(
-    async (req: Request, res: Response, next: NextFunction) => {
-      const locations = req.body;
+export default class LocationController {
+  private static instance: LocationController;
+  public io: Server;
 
-      if (!Array.isArray(locations) || locations.length === 0) {
-        return next(new AppError('Array of location objects is required', 400));
+  private constructor(io: Server) {
+    this.io = io;
+    this.initialize();
+  }
+
+  public static getInstance(io?: Server): LocationController {
+    if (!LocationController.instance) {
+      if (!io)
+        throw new Error('Socket IO instance is required for initialization');
+      LocationController.instance = new LocationController(io);
+    }
+    return LocationController.instance;
+  }
+
+  private initialize() {
+    this.io.on('connection', (socket: Socket) => {
+      console.log('Vehicle connected to location service');
+
+      socket.on('joinLocationRoom', (locationId: string) => {
+        socket.join(`location_${locationId}`);
+        console.log(`Client ${socket.id} joined location_${locationId}`);
+      });
+
+      // register the createLocation listener
+      this.createLocation(socket);
+
+      this.fetchLocation(socket);
+
+      socket.on('disconnect', () => {
+        console.log('Client disconnected:', socket.id);
+      });
+    });
+  }
+
+  private createLocation(socket: Socket) {
+    socket.on('location:create', async (payload, callback) => {
+      try {
+        if (typeof payload === 'string') payload = JSON.parse(payload);
+        if (!Array.isArray(payload) || payload.length === 0) {
+          throw new Error('Array of location objects is required');
+        }
+
+        const formattedLocations = payload.map((loc) => pickProps(loc));
+        const newLocations = await Location.bulkCreate(formattedLocations);
+
+        // Emit only the latest vehicle location to front-end
+        if (newLocations.length > 0) {
+          const latest = newLocations[newLocations.length - 1];
+          this.io.emit('vehicle_location_updated', latest.toJSON());
+        }
+
+        callback?.({
+          status: 'success',
+          results: newLocations.length,
+          data: newLocations,
+        });
+      } catch (error: any) {
+        callback?.({ status: 'error', message: error.message });
       }
+    });
+  }
 
-      const formattedLocations = locations.map((loc) => pickProps(loc));
-      const newLocations = await Location.bulkCreate(formattedLocations);
-
-      // Emit only the latest vehicle location to front-end
-      if (socketService && newLocations.length > 0) {
-        const latest = newLocations[newLocations.length - 1];
-        socketService.io.emit('vehicle_location_updated', latest.toJSON());
+  private fetchLocation(socket: Socket) {
+    socket.on('location:readAll', async (userId: number, callback) => {
+      try {
+        const locations = await Location.findAll({
+          where: { userId: userId },
+          order: [['createdAt', 'DESC']],
+        });
+        callback?.({ status: 'success', data: locations });
+      } catch (error: any) {
+        callback?.({ status: 'error', message: error.message });
       }
-
-      res.status(201).json({
-        status: 'success',
-        results: newLocations.length,
-        data: newLocations,
-      });
-    }
-  );
-
-  // Get all vehicle locations
-  public getAllLocations = asyncHandler(
-    async (_req: Request, res: Response) => {
-      const locations = await Location.findAll({
-        order: [['createdAt', 'DESC']],
-      });
-      res.status(200).json({
-        status: 'success',
-        results: locations.length,
-        data: locations,
-      });
-    }
-  );
-
-  // Get latest vehicle location
-  public getLatestLocation = asyncHandler(
-    async (_req: Request, res: Response) => {
-      const latest = await Location.findOne({ order: [['createdAt', 'DESC']] });
-      if (!latest) throw new AppError('No vehicle location data yet', 404);
-
-      res.status(200).json({ status: 'success', data: latest });
-    }
-  );
-
-  // Get vehicle location by ID
-  public getLocationById = asyncHandler(async (req: Request, res: Response) => {
-    const location = await Location.findByPk(req.params.id);
-    if (!location) throw new AppError('Vehicle location not found', 404);
-
-    res.status(200).json({ status: 'success', data: location });
-  });
-
-  // Update vehicle location
-  public updateLocation = asyncHandler(async (req: Request, res: Response) => {
-    const location = await Location.findByPk(req.params.id);
-    if (!location) throw new AppError('Vehicle location not found', 404);
-
-    const updatedLocation = await location.update(pickProps(req.body));
-
-    if (socketService) {
-      socketService.io.emit(
-        'vehicle_location_updated',
-        updatedLocation.toJSON()
-      );
-    }
-
-    res.status(200).json({ status: 'success', data: updatedLocation });
-  });
-
-  // Delete vehicle location
-  public deleteLocation = asyncHandler(async (req: Request, res: Response) => {
-    const location = await Location.findByPk(req.params.id);
-    if (!location) throw new AppError('Vehicle location not found', 404);
-
-    await location.destroy();
-
-    if (socketService) {
-      socketService.io.emit('vehicle_location_deleted', req.params.id);
-    }
-
-    res.status(204).send();
-  });
+    });
+  }
 }
-
-export default new LocationController();
