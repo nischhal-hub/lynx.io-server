@@ -1,10 +1,9 @@
 import express from "express";
-import path from "path";
 import axios from "axios";
 
 const app = express();
 const PORT = 4000;
-const BACKEND_API = "http://192.168.1.80:3000/api/v1/location";
+const BACKEND_API = "http://192.168.1.69:3000/api/v1/location";
 
 app.use(express.json());
 app.use(express.static("public")); // serve UI files from /public
@@ -13,21 +12,24 @@ app.use(express.static("public")); // serve UI files from /public
 let simulations = {};
 
 function generateFakeGPS(start, end, deviceId) {
-  const lat = start.lat + (Math.random() * (end.lat - start.lat));
-  const lng = start.lng + (Math.random() * (end.lng - start.lng));
+  const lat = start.lat + Math.random() * (end.lat - start.lat);
+  const lng = start.lng + Math.random() * (end.lng - start.lng);
   const speed = (Math.random() * 60).toFixed(2);
-  return { lat, lng, speed: parseFloat(speed),deviceId };
+  return { lat, lng, speed: parseFloat(speed), deviceId };
 }
 
-async function sendBatch(batch) {
+async function sendBatch(batch, deviceId) {
   console.log(JSON.stringify(batch));
   try {
-    const response = await axios.post(BACKEND_API, JSON.stringify(batch),{
-  headers: { "Content-Type": "application/json" }
-});
+    const response = await axios.post(BACKEND_API, batch, {
+      headers: { "Content-Type": "application/json" },
+    });
     console.log(`✅ Uploaded for ${deviceId}:`, response.data);
   } catch (error) {
-    console.error(`❌ Upload failed `, error.response?.data || error.message);
+    console.error(
+      `❌ Upload failed for ${deviceId}`,
+      error.response?.data || error.message
+    );
   }
 }
 
@@ -49,9 +51,8 @@ app.post("/start", (req, res) => {
     const batchInterval = setInterval(() => {
       if (buffer.length > 0) {
         const batch = [...buffer];
-        console.log(batch);
         buffer = [];
-        sendBatch( batch);
+        sendBatch(batch, id); // ✅ pass deviceId
       }
     }, 6000);
 
