@@ -6,14 +6,23 @@ import { Op } from 'sequelize';
 import Device from '../database/model/Device.Model';
 import { ModelCtor } from 'sequelize-typescript';
 import Location from '../database/model/Location.Model';
+import ActivityLog from '../database/model/RecentActiviity.Model';
 
 export class VehicleController {
   // Create/Register Vehicle
   public registerVehicle = asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
-      const { numberPlate, model, brand, owner, vehicleType,deviceId } = req.body;
+      const { numberPlate, model, brand, owner, vehicleType, deviceId } =
+        req.body;
       const userId = req.user?.id;
-      if (!numberPlate || !model || !brand || !owner || !vehicleType||!deviceId) {
+      if (
+        !numberPlate ||
+        !model ||
+        !brand ||
+        !owner ||
+        !vehicleType ||
+        !deviceId
+      ) {
         throw new AppError('All fields are required', 400);
       }
 
@@ -24,8 +33,16 @@ export class VehicleController {
         owner,
         vehicleType,
         driverId: userId,
-        deviceId
+        deviceId,
       });
+
+      if (vehicle) {
+        await ActivityLog.create({
+          vehicleId: vehicle.id,
+          activity: 'vehicle_registered',
+          description: `Vehicle ${vehicle.numberPlate} registered successfully`,
+        });
+      }
 
       res.status(201).json({
         status: 'success',
@@ -65,13 +82,22 @@ export class VehicleController {
 
   public deleteVehicleById = asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
+      const vehicleId = req.params.id;
+
       const deletedCount = await Vehicle.destroy({
-        where: { id: req.params.id },
+        where: { id: vehicleId },
       });
 
       if (deletedCount === 0) {
-        throw new AppError('Vehicle not found', 404);
+        return next(new AppError('Vehicle not found', 404));
       }
+
+      // Log the deletion activity
+      await ActivityLog.create({
+        vehicleId: vehicleId,
+        activityType: 'vehicle_maintenance', // choose the proper enum value
+        description: `Vehicle with ID ${vehicleId} deleted successfully.`,
+      });
 
       res.status(200).json({
         status: 'success',
@@ -88,8 +114,15 @@ export class VehicleController {
       });
 
       if (updatedCount === 0) {
-        throw new AppError('Vehicle not found', 404);
+        return next(new AppError('Vehicle not found', 404));
       }
+
+      // ✅ Create recent activity log
+      await ActivityLog.create({
+        vehicleId: req.params.id,
+        activityType: 'vehicle_maintenance', // or another appropriate enum value
+        description: `Vehicle with ID ${req.params.id} updated successfully.`,
+      });
 
       res.status(200).json({
         status: 'success',
@@ -98,6 +131,7 @@ export class VehicleController {
       });
     }
   );
+
   public getVehicleHistoryByDevice = asyncHandler(
     async (req: Request, res: Response) => {
       const { deviceId } = req.params;

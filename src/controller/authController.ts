@@ -10,6 +10,7 @@ import generateOtp from '../utils/OtpGenerator';
 import passport from 'passport';
 import { getDataUri } from '../utils/datauri';
 import cloudinary from '../utils/claudnary';
+import ActivityLog from '../database/model/RecentActiviity.Model';
 
 const cookieOptions = {
   expires: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days
@@ -83,6 +84,13 @@ class UserController {
         phoneNumber,
         address,
       });
+      if (user) {
+        await ActivityLog.create({
+          userId: user.id,
+          actionType: 'new_user_registered',
+          description: `User ${user.firstName} ${user.lastName} registered successfully.`,
+        });
+      }
 
       this.createSendToken(user, 201, res);
     }
@@ -105,9 +113,6 @@ class UserController {
         user = await User.findOne({ where: { email } });
       }
 
-      // Add debug info
-      console.log('Login attempt - Password provided:', password);
-
       if (!user) {
         return next(new AppError('Incorrect email or password', 401));
       }
@@ -115,10 +120,18 @@ class UserController {
       // Debug info
 
       const isValidPassword = await user.checkPassword(password);
-      console.log('Password validation result:', isValidPassword);
 
       if (!isValidPassword) {
         return next(new AppError('Incorrect email or password', 401));
+      }
+
+      console.log("haha user", user?.id);
+      if (user?.id) {
+        await ActivityLog.create({
+          userId: user.id,
+          activityType: 'user_logged_in',
+          description: `User ${user.firstName} ${user.lastName} logged in.`,
+        });
       }
 
       this.createSendToken(user, 200, res);
