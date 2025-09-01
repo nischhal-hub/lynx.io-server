@@ -8,7 +8,7 @@ import LocationController from './src/controller/Location.controller';
 
 function startServer() {
   const port = envConfig.port || 5000;
-  const host = process.env.HOST;
+  const host = process.env.HOST || "localhost";
 
   const server = http.createServer(app);
 

@@ -28,6 +28,11 @@ app.use('/api/v1/device', deviceRoutes);
 app.use('/api/v1/routes', routesRoutes);
 app.use('/api/v1/userlocation',userLocationRoutes);
 app.use('/api/v1/recentactivity',userRecenetActivityRoutes);
+
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "OK", message: "Server is healthy" });
+});
+
 app.get('/', (req, res) => {
   res.json({
     message: 'Lynx Backend API',
