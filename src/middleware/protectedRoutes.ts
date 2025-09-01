@@ -9,6 +9,7 @@ export enum Role {
   Driver = 'driver',
 }
 
+
 class UserMiddleware {
   public isUserLoggedIn: RequestHandler = async (req, res, next) => {
     let token: string | undefined;
