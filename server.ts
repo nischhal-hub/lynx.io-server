@@ -8,7 +8,7 @@ import LocationController from './src/controller/Location.controller';
 
 function startServer() {
   const port = envConfig.port || 5000;
-  const host = process.env.HOST || "localhost";
+  const host = process.env.HOST || "0.0.0.0" || "localhost";
 
   const server = http.createServer(app);
 
@@ -18,9 +18,9 @@ function startServer() {
   SocketNotificationService.getInstance(socketService.io);
   LocationController.getInstance(socketService.io);
 
-  server.listen({ port, host }, () => {
-    console.log(`Server running at http://${host}:${port}`);
-    console.log(`WebSocket running at ws://${host}:${port}`);
+  server.listen({port, host}, () => {
+    console.log(`Server running on port ${port}`);
+    console.log(`WebSocket running at ${port}`);
   });
 }
 
