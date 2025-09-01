@@ -2,6 +2,7 @@ import { Server, Socket } from 'socket.io';
 import Notification from '../database/model/Notification.Model';
 import User from '../database/model/user.Model';
 import { sendExpoNotification } from '../utils/ExpoNotification';
+import ActivityLog from '../database/model/RecentActiviity.Model';
 
 export default class SocketNotificationService {
   private static instance: SocketNotificationService;
@@ -54,6 +55,14 @@ export default class SocketNotificationService {
           title,
           message,
         });
+
+        if (notification) {
+          await ActivityLog.create({
+            userId,
+            activityType: 'Notification',
+            description: `Notification: ${title} send to ${userId}`,
+          });
+        }
         // Emit via socket
         this.io.to(`user_${userId}`).emit('notification:created', notification);
 
