@@ -1,7 +1,7 @@
 import express from 'express';
 const router = express.Router();
 import UserController from '../controller/authController';
-import protectedRoutes from '../middleware/protectedRoutes';
+import protectedRoutes, { Role } from '../middleware/protectedRoutes';
 import { singleUpload } from '../middleware/multer';
 
 router.post('/register', UserController.register);
@@ -21,5 +21,10 @@ router.put('/me/update', protectedRoutes.isUserLoggedIn, UserController.updatePr
 // router.put('/me/preferences', protectedRoutes.isUserLoggedIn, UserController.updatePreferences);
 router.put('/me/change-password', protectedRoutes.isUserLoggedIn, UserController.changePassword);
 router.delete('/me/delete', protectedRoutes.isUserLoggedIn, UserController.deleteAccount);
+
+router.get('/allUser', protectedRoutes.isUserLoggedIn, protectedRoutes.accessTo(Role?.Admin),UserController.getAllUsers);
+router.get('/user/:id', protectedRoutes.isUserLoggedIn, protectedRoutes.accessTo(Role?.Admin), UserController.getSingleUser);
+router.patch('/user/:id', protectedRoutes.isUserLoggedIn, protectedRoutes.accessTo(Role?.Admin), UserController.updateUserRole);
+
 
 export default router;
