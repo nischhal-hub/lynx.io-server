@@ -151,7 +151,7 @@ class User extends Model {
   }
   generateAuthToken(): string {
     const token = jwt.sign({ id: this.id }, envConfig.JWT_SECRET as string, {
-      expiresIn: '1h',
+      expiresIn: '5d',
     });
     return token;
   }

@@ -1,8 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import User from '../database/model/user.Model';
-import { envConfig } from '../config/config';
+=import User from '../database/model/user.Model';
 import asyncHandler from '../utils/AsyncHandler';
 import AppError from '../utils/AppError';
 import { sendMail } from '../utils/sendEmail';
@@ -20,7 +18,7 @@ const cookieOptions = {
 
 class UserController {
   private createSendToken(user: any, statusCode: number, res: Response) {
-    const authToken = user.generateAuthToken(); // Assumes generateAuthToken is defined in your User model
+    const authToken = user.generateAuthToken(); 
     res.cookie('authToken', authToken, cookieOptions);
 
     user.password = undefined;
