@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import asyncHandler from '../utils/AsyncHandler';
 import AppError from '../utils/AppError';
-import Location from '../database/model/Location.Model'; // Vehicle locations
+import Location from '../database/model/Location.Model';
 import SocketService from '../Socket';
 
 let socketService: SocketService;
@@ -19,7 +19,7 @@ const pickProps = (body: any) => ({
 });
 
 class LocationController {
-  // Create new vehicle locations (bulk)
+  
   public createLocation = asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
       const locations = req.body;
@@ -68,7 +68,6 @@ class LocationController {
       res.status(200).json({ status: 'success', data: latest });
     }
   );
-
   // Get vehicle location by ID
   public getLocationById = asyncHandler(async (req: Request, res: Response) => {
     const location = await Location.findByPk(req.params.id);

@@ -46,6 +46,12 @@ export default class LocationController {
       });
     });
   }
+  // public deleteDevice = asyncHandler(async (req, res) => {
+  //   const deleted = await Device.destroy({ where: { id: req.params.id } });
+  //   if (!deleted) throw new AppError('Device not found', 404);
+
+  //   res.status(204).send();
+  // });
 
   private createLocation(socket: Socket) {
     socket.on('location:create', async (payload, callback) => {
