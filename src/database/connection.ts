@@ -69,7 +69,7 @@ export function setupAssociations() {
 
   Location.belongsTo(Device, {
     foreignKey: 'deviceId',
-    as: 'locations',
+    as: 'device',
     constraints: true,
     onDelete: 'CASCADE',
   });
