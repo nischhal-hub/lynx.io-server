@@ -125,7 +125,7 @@ class UserController {
         return next(new AppError('Incorrect email or password', 401));
       }
 
-      console.log("haha user", user?.id);
+      console.log('haha user', user?.id);
       if (user?.id) {
         await ActivityLog.create({
           userId: user.id,
@@ -270,15 +270,6 @@ class UserController {
     res.status(200).json({ message: 'Password reset successfully!' });
   });
 
-  public logout = asyncHandler(
-    async (req: Request, res: Response, next: NextFunction) => {
-      res.clearCookie('authToken');
-      res.status(200).json({
-        status: 'success',
-        message: 'User logged out successfully',
-      });
-    }
-  );
   public handleSaveExpoToken = asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
       console.log('aaaaaaaaaaaaaa');
@@ -479,6 +470,71 @@ class UserController {
       message: 'Account deleted successfully',
     });
   });
+
+  public updateUserRole = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    const { role } = req.body;
+    user.roles = role;
+    await user.save();
+    res.status(200).json({
+      status: 'success',
+      message: 'Role updated successfully',
+    });
+  });
+
+  public getAllUsers = asyncHandler(async (req: Request, res: Response) => {
+    const users = await User.findAll({
+      order: [['createdAt', 'DESC']],
+      attributes: {
+        exclude: [
+          'password',
+          'otp',
+          'otpGeneratedTime',
+          'refreshToken',
+          'googleId',
+          'authProvider',
+        ],
+      },
+    });
+    res
+      .status(200)
+      .json({ status: 'true', results: users.length, data: users });
+  });
+
+  public getSingleUser = asyncHandler(async (req: Request, res: Response) => {
+    const user = await User.findByPk(req.params.id, {
+      attributes: {
+        exclude: [
+          'password',
+          'otp',
+          'otpGeneratedTime',
+          'refreshToken',
+          'googleId',
+          'authProvider',
+        ],
+      },
+    });
+    if (!user) throw new AppError('User not found', 404);
+    res.status(200).json({ status: 'true', data: user });
+  });
+
+  public logout = asyncHandler(
+    async (req: Request, res: Response, next: NextFunction) => {
+      res.clearCookie('authToken');
+      res.status(200).json({
+        status: 'success',
+        message: 'User logged out successfully',
+      });
+    }
+  );
 }
 
 export default new UserController();
