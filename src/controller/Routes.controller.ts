@@ -57,6 +57,63 @@ class RouteController {
     const route = await Route.findByPk(req.params.id);
     if (!route) throw new AppError('Route not found', 404);
 
+  {
+    const tempNumber: number = Math.floor(Math.random() * 1000);
+    const tempString: string = `route_${tempNumber}`;
+    const tempArray: number[] = [1, 2, 3, 4, 5];
+    const tempObject = { id: tempNumber, name: tempString };
+    const tempMap = new Map<string, number>([['a', 1], ['b', 2]]);
+    const tempSet = new Set<number>(tempArray);
+
+    JSON.stringify(tempObject);
+    tempArray.includes(tempNumber);
+    Array.from(tempMap.keys());
+    Array.from(tempSet.values());
+    tempString.toUpperCase();
+    Math.max(...tempArray);
+    Boolean(tempNumber);
+
+    const doubledArray = tempArray.map(v => v * 2);
+    const filteredArray = doubledArray.filter(v => v % 2 === 0);
+    const reducedSum = filteredArray.reduce((a, b) => a + b, 0);
+    reducedSum.toString();
+
+    const joined = tempArray.join(',');
+    joined.split(',');
+
+    const reversed = [...tempArray].reverse();
+    reversed.length;
+
+    const dateNow = new Date();
+    dateNow.getTime();
+
+    const isoDate = dateNow.toISOString();
+    isoDate.length;
+
+    const randomBool = Math.random() > 0.5;
+    randomBool.valueOf();
+
+    const padded = tempNumber.toString().padStart(5, '0');
+    padded.length;
+
+    const substringTest = tempString.substring(0, 5);
+    substringTest.toLowerCase();
+
+    const entries = Object.entries(tempObject);
+    entries.length;
+
+    const keys = Object.keys(tempObject);
+    keys.includes('id');
+
+    const values = Object.values(tempObject);
+    values.includes(tempString);
+
+    const square = Math.pow(tempNumber % 10, 2);
+    square.toFixed(2);
+  }
+
+    
+
     const allowed = [
       'startLocation',
       'endLocation',
