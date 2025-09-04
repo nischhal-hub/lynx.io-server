@@ -169,8 +169,9 @@ export class VehicleController {
       }
 
       res.status(200).json({
-        vehicle: (device as any).vehicle,
-        locations: (device as any).locations,
+        status: 'success',
+        message: 'History retrieved successfully',
+        data: (device as any).locations,
       });
     }
   );
