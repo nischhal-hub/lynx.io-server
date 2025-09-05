@@ -5,8 +5,10 @@ import {
   Model,
   Table,
   BelongsTo,
+  Unique,
 } from 'sequelize-typescript';
 import User from './user.Model';
+import Device from './Device.Model';
 
 @Table({
   tableName: 'vehicles',
@@ -55,7 +57,7 @@ class Vehicle extends Model {
     allowNull: false,
     validate: { notEmpty: true },
   })
-  declare vehicleType: string; // Fixed spelling from "vechile_type"
+  declare vehicleType: string; 
 
 }
 

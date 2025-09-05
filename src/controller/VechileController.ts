@@ -2,14 +2,13 @@ import { NextFunction, Request, Response } from 'express';
 import asyncHandler from '../utils/AsyncHandler';
 import AppError from '../utils/AppError';
 import Vehicle from '../database/model/Vechile.Model';
-import { Op } from 'sequelize';
+import { Op, UniqueConstraintError } from 'sequelize';
 import Device from '../database/model/Device.Model';
 import { ModelCtor } from 'sequelize-typescript';
 import Location from '../database/model/Location.Model';
 import ActivityLog from '../database/model/RecentActiviity.Model';
 
 export class VehicleController {
-  // Create/Register Vehicle
   public registerVehicle = asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
       const { numberPlate, model, brand, owner, vehicleType, deviceId } =
@@ -26,29 +25,43 @@ export class VehicleController {
         throw new AppError('All fields are required', 400);
       }
 
-      const vehicle = await Vehicle.create({
-        numberPlate,
-        model,
-        brand,
-        owner,
-        vehicleType,
-        driverId: userId,
-        deviceId,
-      });
-
-      if (vehicle) {
-        await ActivityLog.create({
-          vehicleId: vehicle.id,
-          activity: 'vehicle_registered',
-          description: `Vehicle ${vehicle.numberPlate} registered successfully`,
+      try {
+        const vehicle = await Vehicle.create({
+          numberPlate,
+          model,
+          brand,
+          owner,
+          vehicleType,
+          driverId: userId,
+          deviceId,
         });
-      }
 
-      res.status(201).json({
-        status: 'success',
-        message: 'Vehicle registered successfully',
-        data: vehicle,
-      });
+        if (vehicle) {
+          await ActivityLog.create({
+            vehicleId: vehicle.id,
+            activityType: 'vehicle_registered',
+            description: `Vehicle ${vehicle.numberPlate} registered successfully`,
+          });
+        }
+
+        res.status(201).json({
+          status: 'success',
+          message: 'Vehicle registered successfully',
+          data: vehicle,
+        });
+      } catch (error: any) {
+        // 🔥 Handle duplicate deviceId
+        if (error instanceof UniqueConstraintError) {
+          return next(
+            new AppError(
+              'This device is already assigned to another vehicle',
+              400
+            )
+          );
+        }
+
+        return next(error); // Pass other errors to global error handler
+      }
     }
   );
 
@@ -95,7 +108,7 @@ export class VehicleController {
       // Log the deletion activity
       await ActivityLog.create({
         vehicleId: vehicleId,
-        activityType: 'vehicle_maintenance', // choose the proper enum value
+        activityType: 'vehicle_removed', // choose the proper enum value
         description: `Vehicle with ID ${vehicleId} deleted successfully.`,
       });
 
@@ -120,7 +133,7 @@ export class VehicleController {
       // ✅ Create recent activity log
       await ActivityLog.create({
         vehicleId: req.params.id,
-        activityType: 'vehicle_maintenance', // or another appropriate enum value
+        activityType: 'vehicle_maintenance',
         description: `Vehicle with ID ${req.params.id} updated successfully.`,
       });
 
