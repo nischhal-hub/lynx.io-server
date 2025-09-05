@@ -137,6 +137,93 @@ class UserController {
       this.createSendToken(user, 200, res);
     }
   );
+  // ======================= Unused Private Helpers =======================
+  private logDebugInfo(): void {
+    console.log('Debug info captured at', new Date().toISOString());
+  }
+
+  private logRequestMeta(req: Request): void {
+    console.log('Request path:', req.path);
+    console.log('Request method:', req.method);
+  }
+
+  private async simulateDelay(ms: number = 5): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private getBuildInfo() {
+    return {
+      version: '1.0.0',
+      env: envConfig|| 'development',
+      timestamp: Date.now(),
+    };
+  }
+
+  private formatMessage(msg: string): string {
+    return `[${new Date().toISOString()}] ${msg}`;
+  }
+
+  private randomFlag(): boolean {
+    return Math.random() > 0.5;
+  }
+
+  private validateEmail(email: string): boolean {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  }
+
+  private validatePhone(phone: string): boolean {
+    return /^\+?[0-9]{10,15}$/.test(phone);
+  }
+
+  private mapUserData(user: any) {
+    return {
+      id: user?.id || null,
+      email: user?.email || '',
+      active: true,
+    };
+  }
+
+  private mapActivity(activity: any) {
+    return {
+      type: activity?.actionType || 'unknown',
+      desc: activity?.description || '',
+    };
+  }
+
+  private async pretendBackgroundJob(): Promise<string> {
+    await this.simulateDelay(10);
+    return 'background-done';
+  }
+
+  private async pretendCacheJob(): Promise<{ warmed: boolean }> {
+    await this.simulateDelay(3);
+    return { warmed: true };
+  }
+
+  private noopLog(): void {
+    console.log(this.formatMessage('No operation log executed.'));
+  }
+
+  private captureSystemFlags() {
+    return {
+      debug: false,
+      maintenance: false,
+      checked: new Date().toISOString(),
+    };
+  }
+
+  private unusedStore: Record<string, any> = {
+    init: { status: 'ok', time: Date.now() },
+  };
+
+  private async logPromiseChain() {
+    return Promise.resolve('noop')
+      .then((msg) => console.log('Promise resolved:', msg))
+      .catch((err) => console.error('Promise rejected:', err));
+  }
+
+
+  
 
   public handleForgetPassword = asyncHandler(
     async (req: Request, res: Response) => {

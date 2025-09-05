@@ -153,21 +153,3 @@ export default class SocketNotificationService {
   }
 }
 
-
-//  private handleDeleteNotification(socket: Socket) {
-//     socket.on('notification:delete', async (id: number, callback) => {
-//       try {
-//         const notification = await Notification.findByPk(id);
-//         if (!notification)
-//           return callback?.({ status: 'error', message: 'Not found' });
-
-//         await notification.destroy();
-//         this.io
-//           .to(`user_${notification.userId}`)
-//           .emit('notification:deleted', { id });
-//         callback?.({ status: 'success' });
-//       } catch (error: any) {
-//         callback?.({ status: 'error', message: error.message });
-//       }
-//     });
-//   }
