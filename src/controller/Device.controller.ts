@@ -15,7 +15,9 @@ class DeviceController {
   });
 
   public getAllDevices = asyncHandler(async (_req, res) => {
-    const devices = await Device.findAll({ order: [['createdAt', 'DESC']] });
+    const devices = await Device.findAll({ order: [['createdAt', 'DESC']]}
+      
+    );
     res
       .status(200)
       .json({ status: 'true', results: devices.length, data: devices });

@@ -7,6 +7,7 @@ import deviceRoutes from './routes/Device.Routes';
 import routesRoutes from './routes/Routes.Routes';
 import userLocationRoutes from './routes/UserLocation.Routes';
 import userRecenetActivityRoutes from './routes/RecentActivites.routes';
+import GeoFenceRoutes from './routes/GeoFence.Routes';
 
 dotenv.config();
 
@@ -28,6 +29,7 @@ app.use('/api/v1/device', deviceRoutes);
 app.use('/api/v1/routes', routesRoutes);
 app.use('/api/v1/userlocation',userLocationRoutes);
 app.use('/api/v1/recentactivity',userRecenetActivityRoutes);
+app.use('/api/v1/geofence',GeoFenceRoutes);
 app.get('/', (req, res) => {
   res.json({
     message: 'Lynx Backend API',
