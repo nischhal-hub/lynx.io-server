@@ -9,12 +9,12 @@ import Location from '../database/model/Location.Model';
 import ActivityLog from '../database/model/RecentActiviity.Model';
 
 export class VehicleController {
-  // Create/Register Vehicle
   public registerVehicle = asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
       const { numberPlate, model, brand, owner, vehicleType, deviceId } =
         req.body;
       const userId = req.user?.id;
+
       if (
         !numberPlate ||
         !model ||
@@ -53,8 +53,17 @@ export class VehicleController {
   );
 
   public getAllVehicles = asyncHandler(
-    async (_req: Request, res: Response, _next: NextFunction) => {
-      const vehicles = await Vehicle.findAll();
+    async (req: Request, res: Response, _next: NextFunction) => {
+      const { page = 1, limit = 20, sortBy = 'createdAt', order = 'DESC' } =
+        req.query;
+
+      const offset = (Number(page) - 1) * Number(limit);
+
+      const vehicles = await Vehicle.findAll({
+        limit: Number(limit),
+        offset,
+        order: [[sortBy as string, order as string]],
+      });
 
       res.status(200).json({
         status: 'success',
@@ -92,10 +101,9 @@ export class VehicleController {
         return next(new AppError('Vehicle not found', 404));
       }
 
-      // Log the deletion activity
       await ActivityLog.create({
         vehicleId: vehicleId,
-        activityType: 'vehicle_maintenance', // choose the proper enum value
+        activityType: 'vehicle_maintenance',
         description: `Vehicle with ID ${vehicleId} deleted successfully.`,
       });
 
@@ -117,10 +125,9 @@ export class VehicleController {
         return next(new AppError('Vehicle not found', 404));
       }
 
-      // ✅ Create recent activity log
       await ActivityLog.create({
         vehicleId: req.params.id,
-        activityType: 'vehicle_maintenance', // or another appropriate enum value
+        activityType: 'vehicle_maintenance',
         description: `Vehicle with ID ${req.params.id} updated successfully.`,
       });
 
@@ -158,7 +165,7 @@ export class VehicleController {
             where: {
               createdAt: { [Op.between]: [start, end] },
             },
-            required: false, // allow empty locations
+            required: false,
             order: [['createdAt', 'ASC']],
           },
         ],
@@ -174,6 +181,97 @@ export class VehicleController {
       });
     }
   );
+
+  public searchVehicles = asyncHandler(
+    async (req: Request, res: Response) => {
+      const { query } = req.query;
+      if (!query) {
+        return res
+          .status(400)
+          .json({ message: 'Search query parameter is required' });
+      }
+
+      const vehicles = await Vehicle.findAll({
+        where: {
+          [Op.or]: [
+            { numberPlate: { [Op.like]: `%${query}%` } },
+            { model: { [Op.like]: `%${query}%` } },
+            { brand: { [Op.like]: `%${query}%` } },
+            { owner: { [Op.like]: `%${query}%` } },
+          ],
+        },
+      });
+
+      res.status(200).json({
+        status: 'success',
+        message: `Vehicles matching "${query}" retrieved`,
+        data: vehicles,
+      });
+    }
+  );
+
+  public getVehiclesByType = asyncHandler(
+    async (req: Request, res: Response) => {
+      const { type } = req.params;
+      const vehicles = await Vehicle.findAll({ where: { vehicleType: type } });
+
+      res.status(200).json({
+        status: 'success',
+        message: `Vehicles of type ${type} retrieved successfully`,
+        data: vehicles,
+      });
+    }
+  );
+
+  public bulkRegisterVehicles = asyncHandler(
+    async (req: Request, res: Response) => {
+      const { vehicles } = req.body;
+      if (!Array.isArray(vehicles) || vehicles.length === 0) {
+        return res.status(400).json({ message: 'No vehicles provided' });
+      }
+
+      const createdVehicles = [];
+      for (const vehicleData of vehicles) {
+        const vehicle = await Vehicle.create(vehicleData);
+        createdVehicles.push(vehicle);
+
+        await ActivityLog.create({
+          vehicleId: vehicle.id,
+          activityType: 'vehicle_registered',
+          description: `Vehicle ${vehicle.numberPlate} registered in bulk`,
+        });
+      }
+
+      res.status(201).json({
+        status: 'success',
+        message: 'Bulk vehicles registered successfully',
+        data: createdVehicles,
+      });
+    }
+  );
+
+  private async logVehicleActivity(
+    vehicleId: string,
+    activityType: string,
+    description: string
+  ) {
+    await ActivityLog.create({ vehicleId, activityType, description });
+  }
+
+  public notifyMaintenanceDue = asyncHandler(async () => {
+    const vehicles = await Vehicle.findAll({
+      where: { maintenanceDue: true },
+    });
+
+    for (const vehicle of vehicles) {
+      await this.logVehicleActivity(
+        vehicle.id,
+        'maintenance_due',
+        `Maintenance due notification sent for vehicle ${vehicle.numberPlate}`
+      );
+      console.log(`Maintenance notification for vehicle ${vehicle.numberPlate}`);
+    }
+  });
 }
 
 export default new VehicleController();
