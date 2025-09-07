@@ -10,9 +10,19 @@ import UserLocation from './model/UserLocation.Model';
 console.log(envConfig.connection);
 const sequelize = new Sequelize(envConfig.connection as string, {
   dialect: 'postgres',
+  dialectOptions:{
+    ssl:{
+      require:true,
+      rejectUnauthorized:false,
+    }
+  },
   models: [__dirname + '/model/*.ts'],
   logging: false,
 });
+
+async function initTimescale(){
+  await sequelize.query(`SELECT create_hypertable('locations','timestamp',if_not_exists=>TRUE);`);
+}
 
 try {
   sequelize
@@ -22,15 +32,17 @@ try {
 } catch (err) {
   console.log(err);
 }
-
 sequelize
   .sync({ alter: true })
   .then(() => {
     console.log('Database synced successfully.');
+    // initTimescale();
   })
   .catch((err) => {
     console.error('Error syncing database:', err);
   });
+
+  
 
 export function setupAssociations() {
   // A Driver can have many Vehicles

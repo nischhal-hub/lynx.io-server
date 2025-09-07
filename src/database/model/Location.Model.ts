@@ -3,7 +3,7 @@ import { Table, Column, Model, DataType } from 'sequelize-typescript';
 @Table({
   tableName: 'locations',
   modelName: 'location',
-  timestamps: true,
+  timestamps: false,
 })
 class Location extends Model {
   @Column({
@@ -12,6 +12,13 @@ class Location extends Model {
     defaultValue: DataType.UUIDV4,
   })
   declare id: string;
+  @Column({
+    type: DataType.DATE,
+    allowNull:false,
+    primaryKey: true,
+    defaultValue: DataType.NOW,
+  })
+  declare timestamp: Date;
 
   @Column({
     type: DataType.STRING,
