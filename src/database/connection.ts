@@ -45,7 +45,7 @@ sequelize
   
 
 export function setupAssociations() {
-  // A Driver can have many Vehicles
+  // A User/Admin can have many Vehicles
   User.hasMany(Vehicle, {
     foreignKey: 'driverId',
     as: 'vehicles',

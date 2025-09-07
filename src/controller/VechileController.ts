@@ -1,12 +1,12 @@
-import { NextFunction, Request, Response } from 'express';
-import asyncHandler from '../utils/AsyncHandler';
-import AppError from '../utils/AppError';
-import Vehicle from '../database/model/Vechile.Model';
-import { Op } from 'sequelize';
-import Device from '../database/model/Device.Model';
-import { ModelCtor } from 'sequelize-typescript';
-import Location from '../database/model/Location.Model';
-import ActivityLog from '../database/model/RecentActiviity.Model';
+import { NextFunction, Request, Response } from "express";
+import asyncHandler from "../utils/AsyncHandler";
+import AppError from "../utils/AppError";
+import Vehicle from "../database/model/Vechile.Model";
+import { Op } from "sequelize";
+import Device from "../database/model/Device.Model";
+import { ModelCtor } from "sequelize-typescript";
+import Location from "../database/model/Location.Model";
+import ActivityLog from "../database/model/RecentActiviity.Model";
 
 export class VehicleController {
   // Create/Register Vehicle
@@ -23,7 +23,7 @@ export class VehicleController {
         !vehicleType ||
         !deviceId
       ) {
-        throw new AppError('All fields are required', 400);
+        throw new AppError("All fields are required", 400);
       }
 
       const vehicle = await Vehicle.create({
@@ -39,14 +39,14 @@ export class VehicleController {
       if (vehicle) {
         await ActivityLog.create({
           vehicleId: vehicle.id,
-          activity: 'vehicle_registered',
+          activity: "vehicle_registered",
           description: `Vehicle ${vehicle.numberPlate} registered successfully`,
         });
       }
 
       res.status(201).json({
-        status: 'success',
-        message: 'Vehicle registered successfully',
+        status: "success",
+        message: "Vehicle registered successfully",
         data: vehicle,
       });
     }
@@ -64,17 +64,29 @@ export class VehicleController {
     }
   );
 
+    public getAllVehiclesByUser = asyncHandler(
+    async (req: Request, res: Response, _next: NextFunction) => {
+      const vehicles = await Vehicle.findAll({where: {driverId: req.user?.id}});
+
+      res.status(200).json({
+        status: 'success',
+        message: 'Vehicles retrieved successfully',
+        data: vehicles,
+      });
+    }
+  );
+
   public getVehicleById = asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
       const vehicle = await Vehicle.findByPk(req.params.id);
 
       if (!vehicle) {
-        throw new AppError('Vehicle not found', 404);
+        throw new AppError("Vehicle not found", 404);
       }
 
       res.status(200).json({
-        status: 'success',
-        message: 'Vehicle retrieved successfully',
+        status: "success",
+        message: "Vehicle retrieved successfully",
         data: vehicle,
       });
     }
@@ -89,19 +101,19 @@ export class VehicleController {
       });
 
       if (deletedCount === 0) {
-        return next(new AppError('Vehicle not found', 404));
+        return next(new AppError("Vehicle not found", 404));
       }
 
       // Log the deletion activity
       await ActivityLog.create({
         vehicleId: vehicleId,
-        activityType: 'vehicle_maintenance', // choose the proper enum value
+        activityType: "vehicle_maintenance", // choose the proper enum value
         description: `Vehicle with ID ${vehicleId} deleted successfully.`,
       });
 
       res.status(200).json({
-        status: 'success',
-        message: 'Vehicle deleted successfully',
+        status: "success",
+        message: "Vehicle deleted successfully",
       });
     }
   );
@@ -114,23 +126,24 @@ export class VehicleController {
       });
 
       if (updatedCount === 0) {
-        return next(new AppError('Vehicle not found', 404));
+        return next(new AppError("Vehicle not found", 404));
       }
 
       // ✅ Create recent activity log
       await ActivityLog.create({
         vehicleId: req.params.id,
-        activityType: 'vehicle_maintenance', // or another appropriate enum value
+        activityType: "vehicle_maintenance", // or another appropriate enum value
         description: `Vehicle with ID ${req.params.id} updated successfully.`,
       });
 
       res.status(200).json({
-        status: 'success',
-        message: 'Vehicle updated successfully',
+        status: "success",
+        message: "Vehicle updated successfully",
         data: updatedRows[0],
       });
     }
   );
+
 
   public getVehicleHistoryByDevice = asyncHandler(
     async (req: Request, res: Response) => {
@@ -140,7 +153,7 @@ export class VehicleController {
       if (!deviceId || !date) {
         return res
           .status(400)
-          .json({ message: 'deviceId and date are required' });
+          .json({ message: "deviceId and date are required" });
       }
 
       const start = new Date(`${date}T00:00:00`);
@@ -150,27 +163,27 @@ export class VehicleController {
         include: [
           {
             model: Vehicle as ModelCtor<Vehicle>,
-            as: 'vehicle',
+            as: "vehicle",
           },
           {
             model: Location as ModelCtor<Location>,
-            as: 'locations',
+            as: "locations",
             where: {
               createdAt: { [Op.between]: [start, end] },
             },
             required: false, // allow empty locations
-            order: [['createdAt', 'ASC']],
+            order: [["createdAt", "ASC"]],
           },
         ],
       });
 
       if (!device) {
-        return res.status(404).json({ message: 'Device not found' });
+        return res.status(404).json({ message: "Device not found" });
       }
 
       res.status(200).json({
-        status: 'success',
-        message: 'History retrieved successfully',
+        status: "success",
+        message: "History retrieved successfully",
         data: (device as any).locations,
       });
     }

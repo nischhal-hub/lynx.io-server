@@ -12,6 +12,10 @@ router
   .post(protectedRoutes.isUserLoggedIn, VechileController.registerVehicle);
 
 router
+  .route('/user')
+  .get(protectedRoutes.isUserLoggedIn, VechileController.getAllVehiclesByUser);
+
+router
   .route('/:id')
   .get(VechileController.getVehicleById)
   .patch(VechileController.updateVehicleById)

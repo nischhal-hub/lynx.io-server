@@ -38,9 +38,9 @@ export default class LocationController {
       });
 
       //* For user-specific location updates register user
-      socket.on('registerUser', (userId: string)=>{
-        socket.join(`user_${userId}`);
-        console.log(`Client ${socket.id} joined user_${userId}`);
+      socket.on('registerUser', (userId)=>{
+        console.log("user registered: ",userId.userId)
+        socket.join(`user_${userId.userId}`);
       })
 
       this.createLocation(socket);
