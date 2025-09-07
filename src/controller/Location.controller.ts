@@ -2,7 +2,7 @@ import { Server, Socket } from 'socket.io';
 import Location from '../database/model/Location.Model';
 
 const pickProps = (body: any) => ({
-  deviceId: body.deviceId,
+  deviceId: body.deviceId || 'unknown_device',
   latitude: String(body.lat ?? body.latitude),
   longitude: String(body.lng ?? body.longitude),
   altitude: body.altitude ? String(body.altitude) : null,
@@ -31,12 +31,18 @@ export default class LocationController {
     this.io.on('connection', (socket: Socket) => {
       console.log('Vehicle connected to location service');
 
+      //! Where used and why?
       socket.on('joinLocationRoom', (locationId: string) => {
         socket.join(`location_${locationId}`);
-        console.log(`Client ${socket.id} joined location_${locationId}`);
+        // console.log(`Client ${socket.id} joined location_${locationId}`);
       });
 
-      // register the createLocation listener
+      //* For user-specific location updates register user
+      socket.on('registerUser', (userId)=>{
+        console.log("user registered: ",userId.userId)
+        socket.join(`user_${userId.userId}`);
+      })
+
       this.createLocation(socket);
 
       this.fetchLocation(socket);
@@ -50,24 +56,16 @@ export default class LocationController {
   private createLocation(socket: Socket) {
     socket.on('location:create', async (payload, callback) => {
       try {
-        if (typeof payload === 'string') payload = JSON.parse(payload);
-        if (!Array.isArray(payload) || payload.length === 0) {
-          throw new Error('Array of location objects is required');
-        }
-
-        const formattedLocations = payload.map((loc) => pickProps(loc));
-        const newLocations = await Location.bulkCreate(formattedLocations);
+        const location = payload;
+        const newLocation = await Location.create(pickProps(location));
 
         // Emit only the latest vehicle location to front-end
-        if (newLocations.length > 0) {
-          const latest = newLocations[newLocations.length - 1];
-          this.io.emit('vehicle_location_updated', latest.toJSON());
-        }
+
+          this.io.emit('vehicle_location_updated', newLocation);
 
         callback?.({
           status: 'success',
-          results: newLocations.length,
-          data: newLocations,
+          data: newLocation,
         });
       } catch (error: any) {
         callback?.({ status: 'error', message: error.message });
@@ -76,11 +74,9 @@ export default class LocationController {
   }
 
   private fetchLocation(socket: Socket) {
-    socket.on('location:readAll', async (userId: number, callback) => {
+    socket.on('location:readAll', async ( callback) => {
       try {
         const locations = await Location.findAll({
-          where: { userId: userId },
-          order: [['createdAt', 'DESC']],
         });
         callback?.({ status: 'success', data: locations });
       } catch (error: any) {

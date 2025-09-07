@@ -13,7 +13,9 @@ dotenv.config();
 import './database/connection';
 import cookieParser from 'cookie-parser';
 import { setupAssociations } from './database/connection';
-
+// import mqtt from 'mqtt';
+import "./mqttService"
+// const client = mqtt.connect('mqtt://broker.emqx.io:1883');
 const app = express();
 
 app.use(express.json());
@@ -38,5 +40,17 @@ app.get('/', (req, res) => {
     message: 'Lynx Backend API',
   });
 });
+
+// client.on("connect",()=>{
+//   client.subscribe("emqx/esp32",(err)=>{
+//     if(!err){
+//       client.publish("emqx/esp32","Hello from NodeJS")
+//     }
+//   })
+// })
+
+// client.on("message",(topic,message)=>{
+//   console.log(topic,message.toString());
+// })
 
 export default app;
