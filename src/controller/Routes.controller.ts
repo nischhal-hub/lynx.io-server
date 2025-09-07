@@ -3,6 +3,7 @@ import AppError from '../utils/AppError';
 import Vehicle from '../database/model/Vechile.Model';
 import Route from '../database/model/Routes.Model';
 import asyncHandler from '../utils/AsyncHandler';
+import User from '../database/model/user.Model';
 class RouteController {
   public createRoute = asyncHandler(async (req: Request, res: Response) => {
     const routes: any[] = req.body;
@@ -58,11 +59,64 @@ class RouteController {
   public getAllRoutes = asyncHandler(async (_req, res) => {
     const routes = await Route.findAll({
       order: [['createdAt', 'DESC']],
-      include: [{ model: Vehicle, as: 'vehicle' }],
+      include: [
+        {
+          model: Vehicle,
+          as: 'vehicle',
+          include: [
+            {
+              model: User,
+              as: 'driver',
+              attributes: [
+                'id',
+                'firstName',
+                'lastName',
+                'email',
+                'phoneNumber',
+              ],
+            },
+          ],
+        },
+      ],
     });
-    res
-      .status(200)
-      .json({ status: 'success', results: routes.length, data: routes });
+
+    // Transform raw DB response into front-end-friendly structure
+    const transformedRoutes = routes.map((route) => {
+      // @ts-expect-error
+      const vehicle = route.vehicle;
+      const driver = vehicle?.driver;
+
+      return {
+        id: route.id,
+        routeName: route.routeName,
+        // @ts-expect-error
+        vehicleId: vehicle?.numberPlate || route.vehicleId, // or route.vehicleId if plate missing
+        vehicleName: vehicle?.brand || 'Unknown Vehicle',
+        start_location: route.start_location,
+        end_location: route.end_location,
+        intermediate_locations: route.intermediate_locations || [],
+        // @ts-expect-error
+        distance: parseFloat(route.distance),
+        estimated_duration: route.estimated_duration
+          ? route.estimated_duration.replace('PT', '').toLowerCase()
+          : null,
+        status: route.status,
+        currentLocation: route.started_at
+          ? route.start_location
+          : route.start_location, // or you can calculate dynamically
+        driverName: driver
+          ? `${driver.firstName} ${driver.lastName}`
+          : 'Unknown',
+        driverPhone: driver?.phoneNumber,
+        plateNumber: vehicle?.numberPlate || 'N/A',
+      };
+    });
+
+    res.status(200).json({
+      status: 'success',
+      results: transformedRoutes.length,
+      data: transformedRoutes,
+    });
   });
 
   public getRouteById = asyncHandler(async (req, res) => {
@@ -76,6 +130,7 @@ class RouteController {
     if (!route) throw new AppError('Route not found', 404);
 
     const allowed = [
+      'routeName',
       'startLocation',
       'endLocation',
       'intermediateLocations',

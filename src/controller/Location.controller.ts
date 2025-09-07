@@ -39,7 +39,7 @@ export default class LocationController {
       // register the createLocation listener
       this.createLocation(socket);
 
-      this.fetchLocation(socket);
+      // this.fetchLocation(socket);
 
       socket.on('disconnect', () => {
         console.log('Client disconnected:', socket.id);
@@ -75,16 +75,30 @@ export default class LocationController {
     });
   }
 
-  private fetchLocation(socket: Socket) {
-    socket.on('location:readAll', async (userId: number, callback) => {
+  private checkVehicleActive(socket: Socket) {
+    socket.on('vehicle:isActive', async (deviceId: string, callback) => {
       try {
-        const locations = await Location.findAll({
-          where: { userId: userId },
+        // Find the latest location of the device
+        const latest = await Location.findOne({
+          where: { deviceId },
           order: [['createdAt', 'DESC']],
         });
-        callback?.({ status: 'success', data: locations });
+
+        const isActive =
+          latest &&
+          new Date().getTime() - new Date(latest.createdAt).getTime() <
+            5 * 60 * 1000; // active if updated in last 5 minutes
+
+        callback?.({
+          status: 'success',
+          isActive,
+        });
       } catch (error: any) {
-        callback?.({ status: 'error', message: error.message });
+        callback?.({
+          status: 'error',
+          isActive: false,
+          message: error.message,
+        });
       }
     });
   }

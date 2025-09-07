@@ -21,6 +21,13 @@ class Route extends Model {
 
   @Column({
     type: DataType.STRING,
+    primaryKey: true,
+    allowNull: false,
+  })
+  declare routeName: string;
+
+  @Column({
+    type: DataType.STRING,
     allowNull: false,
     comment: "Format: 'latitude,longitude' or address",
   })
