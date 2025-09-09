@@ -1,10 +1,16 @@
-import { Table, Column, Model, DataType, ForeignKey } from 'sequelize-typescript';
+import {
+  Table,
+  Column,
+  Model,
+  DataType,
+  ForeignKey,
+} from 'sequelize-typescript';
 import Device from './Device.Model';
 
 @Table({
   tableName: 'locations',
   modelName: 'location',
-  timestamps: false,
+  timestamps: false, // ✅ disables Sequelize's auto createdAt/updatedAt
 })
 class Location extends Model {
   @Column({
@@ -13,6 +19,7 @@ class Location extends Model {
     defaultValue: DataType.UUIDV4,
   })
   declare id: string;
+
   @ForeignKey(() => Device)
   @Column({
     type: DataType.UUID,
@@ -39,6 +46,13 @@ class Location extends Model {
     type: DataType.STRING,
   })
   declare speed: string;
+
+  // 👇 add this to match your hypertable partition column
+  @Column({
+    type: DataType.DATE,
+    allowNull: false,
+  })
+  declare timestamp: Date;
 }
 
 export default Location;

@@ -81,27 +81,10 @@ export default class LocationController {
         const latest = await Location.findOne({
           where: { deviceId },
           order: [['createdAt', 'DESC']],
-  private fetchLocation(socket: Socket) {
-    socket.on('location:readAll', async ( callback) => {
-      try {
-        const locations = await Location.findAll({
         });
-
-        const isActive =
-          latest &&
-          new Date().getTime() - new Date(latest.createdAt).getTime() <
-            5 * 60 * 1000; // active if updated in last 5 minutes
-
-        callback?.({
-          status: 'success',
-          isActive,
-        });
+        callback?.({ status: 'success', data: latest });
       } catch (error: any) {
-        callback?.({
-          status: 'error',
-          isActive: false,
-          message: error.message,
-        });
+        callback?.({ status: 'error', message: error.message });
       }
     });
   }
