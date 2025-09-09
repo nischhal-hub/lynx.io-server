@@ -7,6 +7,8 @@ import Location from '../database/model/Location.Model';
 import getDistanceKm from '../utils/distanceFormula';
 import SocketNotificationService from '../controller/Notification.controller';
 import SocketService from '../Socket';
+import Vehicle from '../database/model/Vechile.Model';
+import Device from '../database/model/Device.Model';
 
 let socketService: SocketService;
 
@@ -33,65 +35,74 @@ class UserLocationController {
         );
       }
 
-      // 1️⃣ Save the user's location
-      const newUserLocation = await UserLocation.create({
-        userId,
-        latitude: String(latitude),
-        longitude: String(longitude),
+      // 1️⃣ Save or update the user's latest location
+      const [newUserLocation] = await UserLocation.upsert(
+        {
+          userId,
+          latitude: String(latitude),
+          longitude: String(longitude),
+        },
+        { returning: true }
+      );
+
+      const latNum = parseFloat(latitude);
+      const lonNum = parseFloat(longitude);
+
+      // 2️⃣ Fetch latest location for each vehicle
+      const latestVehicleLocations = await Vehicle.findAll({
+        include: [
+          {
+            model: Device,
+            as: 'device',
+            include: [
+              {
+                model: Location,
+                as: 'locations',
+                limit: 1, // latest location only
+                order: [['createdAt', 'DESC']],
+              },
+            ],
+          },
+        ],
       });
 
-      const latNum = parseFloat(newUserLocation.latitude);
-      const lonNum = parseFloat(newUserLocation.longitude);
-
-      // 2️⃣ Fetch all vehicles
-      const vehicles = await Location.findAll();
-
-      const approxDistanceKm = 1; // 1 km bounding box
-      const latDiff = approxDistanceKm / 111;
-      const lonDiff =
-        approxDistanceKm / (111 * Math.cos((latNum * Math.PI) / 180));
-
-      // 3️⃣ Filter vehicles roughly within bounding box
-      const nearbyVehicles = vehicles.filter((v) => {
-        const vehicleLat = parseFloat(v.latitude);
-        const vehicleLon = parseFloat(v.longitude);
-        return (
-          vehicleLat >= latNum - latDiff &&
-          vehicleLat <= latNum + latDiff &&
-          vehicleLon >= lonNum - lonDiff &&
-          vehicleLon <= lonNum + lonDiff
-        );
-      });
-
-      const notificationService = SocketNotificationService.getInstance();
       const nearbyResults: any[] = [];
+      const notificationService = SocketNotificationService.getInstance();
 
-      // 4️⃣ Compute exact distance and notify user
-      for (const vehicle of nearbyVehicles) {
-        const vehicleLat = parseFloat(vehicle.latitude);
-        const vehicleLon = parseFloat(vehicle.longitude);
+      // 3️⃣ Compare distances & send notifications
+      for (const vehicle of latestVehicleLocations) {
+        // @ts-expect-error
+        const vehicleLoc = vehicle.device?.locations[0];
+        if (!vehicleLoc) continue;
+
+        const vehicleLat = parseFloat(vehicleLoc.latitude);
+        const vehicleLon = parseFloat(vehicleLoc.longitude);
+
         const distance = getDistanceKm(latNum, lonNum, vehicleLat, vehicleLon);
 
-        nearbyResults.push({
-          vehicleId: vehicle.id,
-          distance: `${distance.toFixed(3)} km`,
-        });
-
         if (distance < 0.2) {
+          nearbyResults.push({
+            vehicleId: vehicle.id,
+            numberPlate: vehicle.numberPlate,
+            distance: `${distance.toFixed(3)} km`,
+          });
+
           await notificationService.createNotification(
             String(userId),
             'Vehicle Nearby',
-            `A vehicle is ${distance.toFixed(3)} km away from you`
+            `Vehicle ${vehicle.numberPlate} is ${distance.toFixed(
+              3
+            )} km away from you`
           );
         }
       }
 
-      // 5️⃣ Emit socket update
+      // 4️⃣ Emit socket update to user
       if (socketService) {
         socketService.emitUserLocationUpdated(newUserLocation.toJSON());
       }
 
-      // 6️⃣ Response
+      // 5️⃣ Send response
       res.status(201).json({
         status: 'success',
         data: {
@@ -158,11 +169,14 @@ class UserLocationController {
   // --- keep other CRUD methods for backward compatibility ---
   public getAllUserLocations = asyncHandler(async (_req, res) => {
     const locations = await UserLocation.findAll({
-      order: [['createdAt', 'DESC']],
+      order: [['createdAt', 'DESC']], // latest first
     });
-    res
-      .status(200)
-      .json({ status: 'success', results: locations.length, data: locations });
+
+    res.status(200).json({
+      status: 'success',
+      results: locations.length,
+      data: locations,
+    });
   });
 
   public getLatestUserLocation = asyncHandler(async (_req, res) => {
@@ -190,10 +204,10 @@ class UserLocationController {
   });
 
   public deleteUserLocation = asyncHandler(async (req, res) => {
-    const location = await UserLocation.findByPk(req.params.id);
+    const location = await UserLocation.destroy({ where: { }});
     if (!location) throw new AppError('User location not found', 404);
 
-    await location.destroy();
+    // await location.destroy();
     if (socketService) socketService.emitUserLocationDeleted(req.params.id);
     res.status(204).send();
   });

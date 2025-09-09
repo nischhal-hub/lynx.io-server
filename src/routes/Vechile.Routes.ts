@@ -8,7 +8,7 @@ const router = express.Router();
 
 router
   .route('/')
-  .get(VechileController.getAllVehicles)
+  .get( protectedRoutes.isUserLoggedIn,VechileController.getAllVehicles)
   .post(protectedRoutes.isUserLoggedIn, VechileController.registerVehicle);
 
 router

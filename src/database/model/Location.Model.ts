@@ -1,4 +1,5 @@
-import { Table, Column, Model, DataType } from 'sequelize-typescript';
+import { Table, Column, Model, DataType, ForeignKey } from 'sequelize-typescript';
+import Device from './Device.Model';
 
 @Table({
   tableName: 'locations',
@@ -12,13 +13,12 @@ class Location extends Model {
     defaultValue: DataType.UUIDV4,
   })
   declare id: string;
+  @ForeignKey(() => Device)
   @Column({
-    type: DataType.DATE,
-    allowNull:false,
-    primaryKey: true,
-    defaultValue: DataType.NOW,
+    type: DataType.UUID,
+    allowNull: false,
   })
-  declare timestamp: Date;
+  declare deviceId: string;
 
   @Column({
     type: DataType.STRING,

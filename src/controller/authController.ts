@@ -1,8 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import User from '../database/model/user.Model';
-import { envConfig } from '../config/config';
 import asyncHandler from '../utils/AsyncHandler';
 import AppError from '../utils/AppError';
 import { sendMail } from '../utils/sendEmail';
@@ -20,7 +18,7 @@ const cookieOptions = {
 
 class UserController {
   private createSendToken(user: any, statusCode: number, res: Response) {
-    const authToken = user.generateAuthToken(); // Assumes generateAuthToken is defined in your User model
+    const authToken = user.generateAuthToken();
     res.cookie('authToken', authToken, cookieOptions);
 
     user.password = undefined;
@@ -125,7 +123,6 @@ class UserController {
         return next(new AppError('Incorrect email or password', 401));
       }
 
-      console.log('haha user', user?.id);
       if (user?.id) {
         await ActivityLog.create({
           userId: user.id,
@@ -452,10 +449,11 @@ class UserController {
 
   // 5. Delete Account
   public deleteAccount = asyncHandler(async (req: Request, res: Response) => {
-    const userId = req.user?.id;
-    if (!userId) {
+    const adminId = req.user?.id;
+    if (!adminId) {
       return res.status(401).json({ message: 'Not authenticated' });
     }
+    const userId = req.params.id;
 
     const user = await User.findByPk(userId);
     if (!user) {
@@ -464,7 +462,6 @@ class UserController {
 
     await user.destroy();
 
-    res.clearCookie('authToken');
     res.status(200).json({
       status: 'success',
       message: 'Account deleted successfully',
@@ -472,16 +469,22 @@ class UserController {
   });
 
   public updateUserRole = asyncHandler(async (req: Request, res: Response) => {
-    const userId = req.user?.id;
-    if (!userId) {
+    const adminId = req.user?.id;
+    const userId = req.params.id;
+        const { role } = req.body;
+        console.log("aaa",role);
+
+
+    if (!adminId) {
       return res.status(401).json({ message: 'Not authenticated' });
     }
+
+
 
     const user = await User.findByPk(userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    const { role } = req.body;
     user.roles = role;
     await user.save();
     res.status(200).json({
@@ -491,7 +494,13 @@ class UserController {
   });
 
   public getAllUsers = asyncHandler(async (req: Request, res: Response) => {
+    console.log(req.query);
+    const whereClause: any = {};
+    if (req.query.role) {
+      whereClause.roles = req.query.role;
+    }
     const users = await User.findAll({
+      where: whereClause,
       order: [['createdAt', 'DESC']],
       attributes: {
         exclude: [

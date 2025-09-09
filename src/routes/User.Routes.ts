@@ -20,11 +20,11 @@ router.get('/me', protectedRoutes.isUserLoggedIn, UserController.getProfile);
 router.put('/me/update', protectedRoutes.isUserLoggedIn, UserController.updateProfile);
 // router.put('/me/preferences', protectedRoutes.isUserLoggedIn, UserController.updatePreferences);
 router.put('/me/change-password', protectedRoutes.isUserLoggedIn, UserController.changePassword);
-router.delete('/me/delete', protectedRoutes.isUserLoggedIn, UserController.deleteAccount);
+router.delete('/users/:id', protectedRoutes.isUserLoggedIn, UserController.deleteAccount);
 
 router.get('/allUser', protectedRoutes.isUserLoggedIn, protectedRoutes.accessTo(Role?.Admin),UserController.getAllUsers);
 router.get('/user/:id', protectedRoutes.isUserLoggedIn, protectedRoutes.accessTo(Role?.Admin), UserController.getSingleUser);
-router.patch('/user/:id', protectedRoutes.isUserLoggedIn, protectedRoutes.accessTo(Role?.Admin), UserController.updateUserRole);
+router.patch('/users/:id', protectedRoutes.isUserLoggedIn, protectedRoutes.accessTo(Role?.Admin), UserController.updateUserRole);
 
 
 export default router;
