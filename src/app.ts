@@ -14,9 +14,9 @@ dotenv.config();
 import './database/connection';
 import cookieParser from 'cookie-parser';
 import { setupAssociations } from './database/connection';
-// import mqtt from 'mqtt';
+import mqtt from 'mqtt';
 import "./mqttService"
-// const client = mqtt.connect('mqtt://broker.emqx.io:1883');
+const client = mqtt.connect('mqtt://broker.emqx.io:1883');
 const app = express();
 
 app.use(express.json());
