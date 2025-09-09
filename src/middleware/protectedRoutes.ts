@@ -1,47 +1,42 @@
 import { Request, Response, NextFunction, RequestHandler } from 'express';
-import jwt from 'jsonwebtoken';
+import jwt, { JwtPayload } from 'jsonwebtoken';
 import { envConfig } from '../config/config';
 import User from '../database/model/user.Model';
 
-export enum Role {
-  Admin = 'admin',
-  User = 'user',
-  Driver = 'driver',
-}
+// Use string union instead of enum
+export type Role = 'admin' | 'user' | 'driver';
 
 declare global {
   namespace Express {
-    interface Request {
-      user?: {
-        id: number;
-        email: string;
-        role: Role;
-      };
+    interface User {
+      id: number;
+      email: string;
+      role: Role;
     }
   }
 }
 
 class UserMiddleware {
-  public isUserLoggedIn: RequestHandler = async (req, res, next) => {
-    let token: string | undefined;
-
-    const rawAuth = req.headers.authorization;
-    if (rawAuth?.startsWith('Bearer ')) {
-      token = rawAuth.split(' ')[1];
-    } else if (req.cookies?.authToken) {
-      token = req.cookies.authToken;
-    }
-
-    if (!token) {
-      res.status(401).json({ message: 'Authentication token missing' });
-      return;
-    }
-
+  public isUserLoggedIn: RequestHandler = async (req, res, next): Promise<void> => {
     try {
+      let token: string | undefined;
+
+      const rawAuth = req.headers.authorization;
+      if (rawAuth?.startsWith('Bearer ')) {
+        token = rawAuth.split(' ')[1];
+      } else if (req.cookies?.authToken) {
+        token = req.cookies.authToken;
+      }
+
+      if (!token) {
+        res.status(401).json({ message: 'Authentication token missing' });
+        return;
+      }
+
       const decoded = jwt.verify(
         token,
         envConfig.JWT_SECRET!
-      ) as jwt.JwtPayload & { id: number };
+      ) as JwtPayload & { id: number };
 
       const userData = await User.findByPk(decoded.id);
       if (!userData) {
@@ -52,19 +47,19 @@ class UserMiddleware {
       req.user = {
         id: userData.id,
         email: userData.email,
-        role: userData.roles as Role,
+        role: userData.roles as Role, // ✅ string union matches directly
       };
 
       next();
     } catch (err) {
-      console.error(err);
+      console.error('JWT Error:', err);
       res.status(401).json({ message: 'Token invalid or expired' });
     }
   };
 
-  public accessTo = (...roles: Role[]) => {
-    return (req: Request, res: Response, next: NextFunction) => {
-      const role = req.user?.role as Role | undefined;
+  public accessTo = (...roles: Role[]): RequestHandler => {
+    return (req, res, next): void => {
+      const role = req.user?.role;
       if (!role || !roles.includes(role)) {
         res.status(403).json({ message: 'Insufficient permissions' });
         return;
@@ -73,9 +68,8 @@ class UserMiddleware {
     };
   };
 
-  // Check if user has a specific role
   public hasRole = (role: Role): RequestHandler => {
-    return (req, res, next) => {
+    return (req, res, next): void => {
       if (req.user?.role !== role) {
         res.status(403).json({ message: `Requires ${role} role` });
         return;
@@ -84,9 +78,8 @@ class UserMiddleware {
     };
   };
 
-  // Check if user is owner of a resource
   public isOwner = (getResourceOwnerId: (req: Request) => number): RequestHandler => {
-    return (req, res, next) => {
+    return (req, res, next): void => {
       const ownerId = getResourceOwnerId(req);
       if (req.user?.id !== ownerId) {
         res.status(403).json({ message: 'You do not own this resource' });
@@ -96,13 +89,13 @@ class UserMiddleware {
     };
   };
 
-  // Optional authentication middleware
-  public optionalAuth: RequestHandler = async (req, res, next) => {
+  public optionalAuth: RequestHandler = async (req, _res, next): Promise<void> => {
     try {
       const rawAuth = req.headers.authorization;
       if (rawAuth?.startsWith('Bearer ')) {
         const token = rawAuth.split(' ')[1];
-        const decoded = jwt.verify(token, envConfig.JWT_SECRET!) as jwt.JwtPayload & { id: number };
+        const decoded = jwt.verify(token, envConfig.JWT_SECRET!) as JwtPayload & { id: number };
+
         const userData = await User.findByPk(decoded.id);
         if (userData) {
           req.user = {
@@ -112,17 +105,17 @@ class UserMiddleware {
           };
         }
       }
-    } catch (err) {
-      console.warn('Optional auth failed:', err.message);
+    } catch {
+      console.warn('Optional auth failed');
     } finally {
       next();
     }
   };
 
-  // Rate limiter per user
   private requestCounts: Map<number, number> = new Map();
+
   public rateLimit = (limit: number, windowMs: number): RequestHandler => {
-    return (req, res, next) => {
+    return (req, res, next): void => {
       if (!req.user) {
         next();
         return;
@@ -132,11 +125,16 @@ class UserMiddleware {
       const count = this.requestCounts.get(userId) || 0;
 
       if (count >= limit) {
-        return res.status(429).json({ message: 'Too many requests, try later' });
+        res.status(429).json({ message: 'Too many requests, try later' });
+        return;
       }
 
       this.requestCounts.set(userId, count + 1);
-      setTimeout(() => this.requestCounts.set(userId, (this.requestCounts.get(userId) || 1) - 1), windowMs);
+
+      setTimeout(() => {
+        const current = this.requestCounts.get(userId) || 0;
+        this.requestCounts.set(userId, Math.max(0, current - 1));
+      }, windowMs);
 
       next();
     };
