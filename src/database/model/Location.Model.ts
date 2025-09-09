@@ -4,7 +4,7 @@ import Device from './Device.Model';
 @Table({
   tableName: 'locations',
   modelName: 'location',
-  timestamps: true,
+  timestamps: false,
 })
 class Location extends Model {
   @Column({

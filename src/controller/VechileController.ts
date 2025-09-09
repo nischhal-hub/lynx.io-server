@@ -22,7 +22,7 @@ export class VehicleController {
         !vehicleType ||
         !deviceId
       ) {
-        throw new AppError('All fields are required', 400);
+        throw new AppError("All fields are required", 400);
       }
 
       try {
@@ -87,12 +87,12 @@ export class VehicleController {
       const vehicle = await Vehicle.findByPk(req.params.id);
 
       if (!vehicle) {
-        throw new AppError('Vehicle not found', 404);
+        throw new AppError("Vehicle not found", 404);
       }
 
       res.status(200).json({
-        status: 'success',
-        message: 'Vehicle retrieved successfully',
+        status: "success",
+        message: "Vehicle retrieved successfully",
         data: vehicle,
       });
     }
@@ -107,7 +107,7 @@ export class VehicleController {
       });
 
       if (deletedCount === 0) {
-        return next(new AppError('Vehicle not found', 404));
+        return next(new AppError("Vehicle not found", 404));
       }
 
       // Log the deletion activity
@@ -118,8 +118,8 @@ export class VehicleController {
       });
 
       res.status(200).json({
-        status: 'success',
-        message: 'Vehicle deleted successfully',
+        status: "success",
+        message: "Vehicle deleted successfully",
       });
     }
   );
@@ -132,7 +132,7 @@ export class VehicleController {
       });
 
       if (updatedCount === 0) {
-        return next(new AppError('Vehicle not found', 404));
+        return next(new AppError("Vehicle not found", 404));
       }
 
       // ✅ Create recent activity log
@@ -143,12 +143,13 @@ export class VehicleController {
       });
 
       res.status(200).json({
-        status: 'success',
-        message: 'Vehicle updated successfully',
+        status: "success",
+        message: "Vehicle updated successfully",
         data: updatedRows[0],
       });
     }
   );
+
 
   public getVehicleHistoryByDevice = asyncHandler(
     async (req: Request, res: Response) => {
@@ -158,7 +159,7 @@ export class VehicleController {
       if (!deviceId || !date) {
         return res
           .status(400)
-          .json({ message: 'deviceId and date are required' });
+          .json({ message: "deviceId and date are required" });
       }
 
       const start = new Date(`${date}T00:00:00`);
@@ -168,27 +169,27 @@ export class VehicleController {
         include: [
           {
             model: Vehicle as ModelCtor<Vehicle>,
-            as: 'vehicle',
+            as: "vehicle",
           },
           {
             model: Location as ModelCtor<Location>,
-            as: 'locations',
+            as: "locations",
             where: {
               createdAt: { [Op.between]: [start, end] },
             },
             required: false, // allow empty locations
-            order: [['createdAt', 'ASC']],
+            order: [["createdAt", "ASC"]],
           },
         ],
       });
 
       if (!device) {
-        return res.status(404).json({ message: 'Device not found' });
+        return res.status(404).json({ message: "Device not found" });
       }
 
       res.status(200).json({
-        status: 'success',
-        message: 'History retrieved successfully',
+        status: "success",
+        message: "History retrieved successfully",
         data: (device as any).locations,
       });
     }

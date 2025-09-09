@@ -85,7 +85,7 @@ class UserController {
       if (user) {
         await ActivityLog.create({
           userId: user.id,
-          actionType: 'new_user_registered',
+          activityType: 'new_user_registered',
           description: `User ${user.firstName} ${user.lastName} registered successfully.`,
         });
       }
