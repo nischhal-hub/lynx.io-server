@@ -5,6 +5,7 @@ import Geofence from '../database/model/GeofencesArea';
 import getDistanceKm from '../utils/distanceFormula';
 import SocketNotificationService from './Notification.controller';
 import SocketService from '../Socket';
+import Notification from '../database/model/Notification.Model';
 
 let socketService: SocketService;
 
@@ -12,18 +13,8 @@ export function initSocketService(server: any) {
   socketService = SocketService.initSocketService(server);
 }
 
-async function getAllOnlineUsers() {
-  // Replace this with your actual online users tracking
-  return [
-    { id: 'user1', name: 'Alice' },
-    { id: 'user2', name: 'Bob' },
-  ];
-}
-
 class LocationController {
-  // Create new vehicle locations (bulk)
   public createLocation = async (req: any, res: any, next: any) => {
-    console.log("jdshdfjhjsdhfkjdshfkjhskhkshfkhskhfsh");
     const locations = req.body;
     if (!Array.isArray(locations) || locations.length === 0) {
       return next(new Error('Array of location objects is required'));
@@ -38,84 +29,73 @@ class LocationController {
       }))
     );
 
-    if (socketService && newLocations.length > 0) {
-      const latest = newLocations[newLocations.length - 1];
-      socketService.io.emit('vehicle_location_updated', latest.toJSON());
+    const latest = newLocations[newLocations.length - 1];
 
-      // Call geofence check & push notifications
-      await this.checkGeofences(latest);
-    }
+    // if (socketService?.io) {
+    //   socketService.io.emit('vehicle_location_updated', latest.toJSON());
+    // }
 
-    res.status(201).json({ status: 'success', results: newLocations.length, data: newLocations });
+    // Check geofences & send notifications
+    await this.checkGeofences(latest);
+
+    res.status(201).json({
+      status: 'success',
+      results: newLocations.length,
+      data: newLocations,
+    });
   };
 
-  private async checkGeofences(location: Location) {
-    console.log("location",location);
-    const fences = await Geofence.findAll();
-    if (!fences.length) return;
-    
-
-    // Get vehicleId from Device → Vehicle
-    const device = await Device.findByPk(location.deviceId, {
-      include: [{ model: Vehicle, as: 'vehicle', attributes: ['id', 'numberPlate'] }],
-    });
-
-    console.log("device",device);
- 
-
-
-    // @ts-expect-error
-    const vehicleId = device?.vehicle?.id ?? location.deviceId;
-    // @ts-expect-error
-    const vehiclePlate = device?.vehicle?.numberPlate ?? 'Unknown';
-    console.log("vehiclePlate",vehiclePlate);
-    console.log("vehicleId",vehicleId);
-
-    const lat = parseFloat(location.latitude);
-    const lon = parseFloat(location.longitude);
+  private async checkGeofences(location: any) {
+    const latNum = parseFloat(location.latitude);
+    const lonNum = parseFloat(location.longitude);
 
     const notificationService = SocketNotificationService.getInstance();
+    const fences = await Geofence.findAll({ where: { active: true } });
+    if (!fences.length) return;
 
-    // Fetch online users
-    const onlineUsers = await getAllOnlineUsers();
-    console.log("onineessdfdsf",onlineUsers);
+    const device = await Device.findByPk(location.deviceId, {
+      include: [
+        {
+          model: Vehicle,
+          as: 'vehicle',
+          attributes: ['id', 'numberPlate', 'driverId'],
+        },
+      ],
+    });
+
+    // @ts-ignore
+    if (!device?.vehicle?.driverId) return;
+    // @ts-ignore
+    const vehiclePlate = device.vehicle.numberPlate ?? 'Unknown';
+    // @ts-ignore
+    const userId = device.vehicle.driverId;
 
     for (const fence of fences) {
-      const distance = getDistanceKm(lat, lon, fence.center_lat, fence.center_lng);
-      const inside = distance * 1000 <= fence.radius; // km → meters
+      const distance = getDistanceKm(
+        latNum,
+        lonNum,
+        fence.center_lat,
+        fence.center_lng
+      );
+      const inside = distance * 1000 <= fence.radius;
+      const type = inside ? 'Entry' : 'Exit';
+      const title = `Vehicle ${type} Geofence`;
+      const message = inside
+        ? `Your vehicle ${vehiclePlate} entered ${fence.name}`
+        : `Your vehicle ${vehiclePlate} exited ${fence.name}`;
 
-      if (inside && (fence.trigger === 'entry' || fence.trigger === 'both')) {
-        // Send notification to online users
-        for (const user of onlineUsers) {
-          await notificationService.createNotification(
-            user.id,
-            'Vehicle Entered Geofence',
-            `Vehicle ${vehiclePlate} entered ${fence.name}`
-          );
-        }
+      // Send only once per event
+      const lastNotification = await Notification.findOne({
+        where: { userId, title },
+        order: [['createdAt', 'DESC']],
+      });
 
-        // Push via socket
-        socketService.io.emit('geofence_alert', {
-          vehicleId,
-          type: 'entry',
-          message: `Vehicle ${vehiclePlate} entered ${fence.name}`,
-        });
-      }
-
-      if (!inside && (fence.trigger === 'exit' || fence.trigger === 'both')) {
-        for (const user of onlineUsers) {
-          await notificationService.createNotification(
-            user.id,
-            'Vehicle Exited Geofence',
-            `Vehicle ${vehiclePlate} exited ${fence.name}`
-          );
-        }
-
-        socketService.io.emit('geofence_alert', {
-          vehicleId,
-          type: 'exit',
-          message: `Vehicle ${vehiclePlate} exited ${fence.name}`,
-        });
+      if (!lastNotification) {
+        await notificationService.createNotification(
+          String(userId),
+          title,
+          message
+        );
       }
     }
   }

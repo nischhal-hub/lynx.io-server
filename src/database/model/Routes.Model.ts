@@ -23,6 +23,7 @@ class Route extends Model {
     type: DataType.STRING,
     primaryKey: true,
     allowNull: false,
+    defaultValue: 'source-destination',
   })
   declare routeName: string;
 
