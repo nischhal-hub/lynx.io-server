@@ -24,99 +24,92 @@ const pickProps = (body: any) => ({
 
 class UserLocationController {
   // Create new user location and notify nearby vehicles
-  public createUserLocation = asyncHandler(
+ public createUserLocation = asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
-      try {
-        const { latitude, longitude } = req.body;
-        const userId = req.user?.id;
+      const { latitude, longitude } = req.body;
+      const userId = req.user?.id;
 
-        if (!latitude || !longitude || !userId) {
-          return next(
-            new AppError('Latitude, longitude, and userId are required', 400)
-          );
-        }
-
-        // Save/update user location
-        const [newUserLocation] = await UserLocation.upsert(
-          {
-            userId,
-            latitude: String(latitude),
-            longitude: String(longitude),
-          },
-          { returning: true }
+      if (!latitude || !longitude || !userId) {
+        return next(
+          new AppError('Latitude, longitude, and userId are required', 400)
         );
-
-        const latNum = parseFloat(latitude);
-        const lonNum = parseFloat(longitude);
-
-        // Fetch vehicles + latest location
-        const latestVehicleLocations = await Vehicle.findAll({
-          include: [
-            {
-              model: Device,
-              as: 'device',
-              include: [
-                {
-                  model: Location,
-                  as: 'locations',
-                  limit: 1,
-                  order: [['createdAt', 'DESC']],
-                },
-              ],
-            },
-          ],
-        });
-
-        const nearbyResults: any[] = [];
-        const notificationService = SocketNotificationService.getInstance();
-
-        for (const vehicle of latestVehicleLocations) {
-          // @ts-expect-error
-          const vehicleLoc = vehicle.device?.locations?.[0];
-          if (!vehicleLoc) continue;
-
-          const vehicleLat = parseFloat(vehicleLoc.latitude);
-          const vehicleLon = parseFloat(vehicleLoc.longitude);
-
-          const distance = getDistanceKm(
-            latNum,
-            lonNum,
-            vehicleLat,
-            vehicleLon
-          );
-
-          if (distance < 0.2) {
-            nearbyResults.push({
-              vehicleId: vehicle.id,
-              numberPlate: vehicle.numberPlate,
-              distance: `${distance.toFixed(3)} km`,
-            });
-
-            await notificationService.createNotification(
-              String(userId),
-              'Vehicle Nearby',
-              `Vehicle ${vehicle.numberPlate} is ${distance.toFixed(
-                3
-              )} km away from you`
-            );
-          }
-        }
-
-        if (socketService) {
-          socketService.emitUserLocationUpdated(newUserLocation.toJSON());
-        }
-
-        res.status(201).json({
-          status: 'success',
-          data: {
-            newUserLocation,
-            nearbyVehicles: nearbyResults,
-          },
-        });
-      } catch (err: any) {
-        console.error('💥 Sequelize Error:', err.message, err?.errors || '');
-        next(err); // Pass to global error handler
       }
+
+      // 1️⃣ Save or update the user's latest location
+      const [newUserLocation] = await UserLocation.upsert(
+        {
+          userId,
+          latitude: String(latitude),
+          longitude: String(longitude),
+        },
+        { returning: true }
+      );
+
+      const latNum = parseFloat(latitude);
+      const lonNum = parseFloat(longitude);
+
+      // 2️⃣ Fetch latest location for each vehicle
+      const latestVehicleLocations = await Vehicle.findAll({
+        include: [
+          {
+            model: Device,
+            as: 'device',
+            include: [
+              {
+                model: Location,
+                as: 'locations',
+                limit: 1, // latest location only
+                order: [['timestamp', 'DESC']],
+              },
+            ],
+          },
+        ],
+      });
+
+      const nearbyResults: any[] = [];
+      const notificationService = SocketNotificationService.getInstance();
+
+      // 3️⃣ Compare distances & send notifications
+      for (const vehicle of latestVehicleLocations) {
+        // @ts-expect-error
+        const vehicleLoc = vehicle.device?.locations[0];
+        if (!vehicleLoc) continue;
+
+        const vehicleLat = parseFloat(vehicleLoc.latitude);
+        const vehicleLon = parseFloat(vehicleLoc.longitude);
+
+        const distance = getDistanceKm(latNum, lonNum, vehicleLat, vehicleLon);
+
+        if (distance < 0.2) {
+          nearbyResults.push({
+            vehicleId: vehicle.id,
+            numberPlate: vehicle.numberPlate,
+            distance: `${distance.toFixed(3)} km`,
+          });
+
+          await notificationService.createNotification(
+            String(userId),
+            'Vehicle Nearby',
+            `Vehicle ${vehicle.numberPlate} is ${distance.toFixed(
+              3
+            )} km away from you`
+          );
+        }
+      }
+
+      // 4️⃣ Emit socket update to user
+      if (socketService) {
+        socketService.emitUserLocationUpdated(newUserLocation.toJSON());
+      }
+
+      // 5️⃣ Send response
+      res.status(201).json({
+        status: 'success',
+        data: {
+          newUserLocation,
+          nearbyVehicles: nearbyResults,
+        },
+      });
     }
   );
 
@@ -176,14 +169,11 @@ class UserLocationController {
   // --- keep other CRUD methods for backward compatibility ---
   public getAllUserLocations = asyncHandler(async (_req, res) => {
     const locations = await UserLocation.findAll({
-      order: [['createdAt', 'DESC']], // latest first
+      order: [['createdAt', 'DESC']],
     });
-
-    res.status(200).json({
-      status: 'success',
-      results: locations.length,
-      data: locations,
-    });
+    res
+      .status(200)
+      .json({ status: 'success', results: locations.length, data: locations });
   });
 
   public getLatestUserLocation = asyncHandler(async (_req, res) => {
@@ -211,10 +201,10 @@ class UserLocationController {
   });
 
   public deleteUserLocation = asyncHandler(async (req, res) => {
-    const location = await UserLocation.destroy({ where: {} });
+    const location = await UserLocation.findByPk(req.params.id);
     if (!location) throw new AppError('User location not found', 404);
 
-    // await location.destroy();
+    await location.destroy();
     if (socketService) socketService.emitUserLocationDeleted(req.params.id);
     res.status(204).send();
   });

@@ -67,6 +67,8 @@ export default class SocketNotificationService {
         this.io.to(`user_${userId}`).emit('notification:created', notification);
 
         const user = await User.findByPk(userId);
+        console.log('jajaja token', user?.expoPushToken);
+
         if (user?.expoPushToken) {
           await sendExpoNotification(user.expoPushToken, title, message);
         }
@@ -152,7 +154,6 @@ export default class SocketNotificationService {
     return notification;
   }
 }
-
 
 //  private handleDeleteNotification(socket: Socket) {
 //     socket.on('notification:delete', async (id: number, callback) => {
