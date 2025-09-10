@@ -35,10 +35,10 @@ try {
   console.log(err);
 }
 sequelize
-  .sync({ alter: true })
+  .sync({ alter:true})
   .then(() => {
     console.log('Database synced successfully.');
-    initTimescale();
+    // initTimescale();
   })
   .catch((err) => {
     console.error('Error syncing database:', err);

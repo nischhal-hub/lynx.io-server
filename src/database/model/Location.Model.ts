@@ -4,6 +4,7 @@ import {
   Model,
   DataType,
   ForeignKey,
+  PrimaryKey,
 } from 'sequelize-typescript';
 import Device from './Device.Model';
 
@@ -51,6 +52,7 @@ class Location extends Model {
     type: DataType.DATE,
     allowNull: false,
     primaryKey: true,
+
     defaultValue: DataType.NOW,
   })
   declare timestamp: Date;
