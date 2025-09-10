@@ -47,10 +47,11 @@ class Location extends Model {
   })
   declare speed: string;
 
-  // 👇 add this to match your hypertable partition column
   @Column({
     type: DataType.DATE,
     allowNull: false,
+    primaryKey: true,
+    defaultValue: DataType.NOW,
   })
   declare timestamp: Date;
 }

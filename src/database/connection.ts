@@ -10,18 +10,20 @@ import UserLocation from './model/UserLocation.Model';
 console.log(envConfig.connection);
 const sequelize = new Sequelize(envConfig.connection as string, {
   dialect: 'postgres',
-  dialectOptions:{
-    ssl:{
-      require:true,
-      rejectUnauthorized:false,
-    }
+  dialectOptions: {
+    ssl: {
+      require: true,
+      rejectUnauthorized: false,
+    },
   },
   models: [__dirname + '/model/*.ts'],
   logging: false,
 });
 
-async function initTimescale(){
-  await sequelize.query(`SELECT create_hypertable('locations','timestamp',if_not_exists=>TRUE);`);
+async function initTimescale() {
+  await sequelize.query(
+    `SELECT create_hypertable('locations','timestamp',if_not_exists=>TRUE);`
+  );
 }
 
 try {
@@ -41,8 +43,6 @@ sequelize
   .catch((err) => {
     console.error('Error syncing database:', err);
   });
-
-  
 
 export function setupAssociations() {
   // A User/Admin can have many Vehicles
