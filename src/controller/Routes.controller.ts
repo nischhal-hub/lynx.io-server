@@ -34,8 +34,10 @@ class RouteController {
     }
 
     const newRoutes = routes.map((r) => ({
+      
       start_location: r.startLocation,
       end_location: r.endLocation,
+      routeName: r.routeName,
       status: r.status ?? 'pending',
       vehicleId: r.vehicleId,
       intermediate_locations: r.intermediateLocation ?? [],
@@ -89,8 +91,7 @@ class RouteController {
       return {
         id: route.id,
         routeName: route.routeName,
-        // @ts-expect-error
-        vehicleId: vehicle?.numberPlate || route.vehicleId, // or route.vehicleId if plate missing
+        vehicleId: vehicle?.id, // or route.vehicleId if plate missing
         vehicleName: vehicle?.brand || 'Unknown Vehicle',
         start_location: route.start_location,
         end_location: route.end_location,

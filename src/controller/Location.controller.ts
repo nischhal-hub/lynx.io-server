@@ -1,5 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import Location from '../database/model/Location.Model';
+import Device from '../database/model/Device.Model';
+import Vehicle from '../database/model/Vechile.Model';
 
 const pickProps = (body: any) => ({
   deviceId: body.deviceId || 'unknown_device',
@@ -38,14 +40,14 @@ export default class LocationController {
       });
 
       //* For user-specific location updates register user
-      socket.on('registerUser', (userId)=>{
-        console.log("user registered: ",userId.userId)
+      socket.on('registerUser', (userId) => {
+        console.log('user registered: ', userId.userId);
         socket.join(`user_${userId.userId}`);
-      })
+      });
 
       this.createLocation(socket);
-
-      // this.fetchLocation(socket);
+      this.handleVehicleRoom(socket);
+      this.checkVehicleActive(socket);
 
       socket.on('disconnect', () => {
         console.log('Client disconnected:', socket.id);
@@ -61,7 +63,7 @@ export default class LocationController {
 
         // Emit only the latest vehicle location to front-end
 
-          this.io.emit('vehicle_location_updated', newLocation);
+        this.io.emit('vehicle_location_updated', newLocation);
 
         callback?.({
           status: 'success',
@@ -73,6 +75,84 @@ export default class LocationController {
     });
   }
 
+  private handleVehicleRoom(socket: Socket) {
+    // Join vehicle room
+    socket.on('vehicleRoom:join', async (vehicleId: string, callback) => {
+      const room = `vehicle_${vehicleId}`;
+      socket.join(room);
+      console.log(`Socket ${socket.id} joined ${room}`);
+
+      // Current occupancy
+      const count = this.io.sockets.adapter.rooms.get(room)?.size || 0;
+
+      try {
+        // Get vehicle + latest location
+        const vehicles = await Vehicle.findAll({
+          include: [
+            {
+              model: Device,
+              as: 'device',
+              include: [
+                {
+                  model: Location,
+                  as: 'locations',
+                  limit: 1, // latest location only
+                  order: [['timestamp', 'DESC']],
+                },
+              ],
+            },
+          ],
+        });
+
+        // Assuming you want the first vehicle for now
+        const vehicle = vehicles[0];
+        // @ts-ignore
+        const latestLocationRaw = vehicle?.device?.locations?.[0] || null;
+
+        // Convert coordinates to numbers
+        const latestLocation = latestLocationRaw
+          ? {
+              latitude: Number(latestLocationRaw.latitude),
+              longitude: Number(latestLocationRaw.longitude),
+            }
+          : null;
+
+        console.log('Latest location:', latestLocation);
+
+        // Broadcast to room
+        this.io.to(room).emit('vehicle:roomUpdate', {
+          vehicleId,
+          count,
+          location: latestLocation,
+        });
+
+        callback?.({
+          status: 'success',
+          vehicleId,
+          count,
+          location: latestLocation,
+        });
+      } catch (err) {
+        console.error('Error fetching vehicle/location:', err);
+        callback?.({
+          status: 'error',
+          message: 'Failed to fetch vehicle location',
+        });
+      }
+    });
+
+    // Leave vehicle room
+    socket.on('vehicleRoom:leave', (vehicleId: string, callback) => {
+      const room = `vehicle_${vehicleId}`;
+      socket.leave(room);
+      console.log(`Socket ${socket.id} left ${room}`);
+
+      const count = this.io.sockets.adapter.rooms.get(room)?.size || 0;
+
+      this.io.to(room).emit('vehicle:roomUpdate', { vehicleId, count });
+      callback?.({ status: 'success', vehicleId, count });
+    });
+  }
 
   private checkVehicleActive(socket: Socket) {
     socket.on('vehicle:isActive', async (deviceId: string, callback) => {
