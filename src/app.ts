@@ -9,19 +9,23 @@ import userLocationRoutes from './routes/UserLocation.Routes';
 import userRecenetActivityRoutes from './routes/RecentActivites.routes';
 import GeoFenceRoutes from './routes/GeoFence.Routes';
 
-dotenv.config();
-
 import './database/connection';
 import cookieParser from 'cookie-parser';
 import { setupAssociations } from './database/connection';
 import mqtt from 'mqtt';
-import "./mqttService"
+import './mqttService';
+import { leakyBucketMiddleware } from './middleware/rate-limiter';
+import helmet from 'helmet';
 const client = mqtt.connect('mqtt://broker.emqx.io:1883');
+dotenv.config();
 const app = express();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use(helmet());
+app.use(leakyBucketMiddleware({ capacity: 5, leakRate: 0.005 }));
+
 setupAssociations();
 
 app.use('/api/v1/auth', authRoutes);
@@ -29,11 +33,11 @@ app.use('/api/v1/vehicle', vehicleRoutes);
 app.use('/api/v1/location', locationRoutes);
 app.use('/api/v1/device', deviceRoutes);
 app.use('/api/v1/routes', routesRoutes);
-app.use('/api/v1/userlocation',userLocationRoutes);
-app.use('/api/v1/recentactivity',userRecenetActivityRoutes);
-app.use('/api/v1/geofence',GeoFenceRoutes);
-app.get("/health", (req, res) => {
-  res.status(200).json({ status: "OK", message: "Server is healthy" });
+app.use('/api/v1/userlocation', userLocationRoutes);
+app.use('/api/v1/recentactivity', userRecenetActivityRoutes);
+app.use('/api/v1/geofence', GeoFenceRoutes);
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'OK', message: 'Server is healthy' });
 });
 app.get('/', (req, res) => {
   res.json({

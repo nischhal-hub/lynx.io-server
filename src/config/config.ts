@@ -1,6 +1,6 @@
 // src/config/config.ts
 import dotenv from 'dotenv';
-dotenv.config(); // ✅ Must be at the top
+dotenv.config(); 
 
 export const envConfig = {
   port: process.env.PORT,
