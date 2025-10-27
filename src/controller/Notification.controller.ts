@@ -43,6 +43,7 @@ export default class SocketNotificationService {
   }
 
   // ---------------------- Create Notification ----------------------
+
   private handleCreateNotification(socket: Socket) {
     socket.on('notification:create', async (payload, callback) => {
       try {
@@ -50,27 +51,37 @@ export default class SocketNotificationService {
         const { userId, title, message } = payload;
         if (!userId || !title || !message)
           throw new Error('Missing required fields');
+
+        // Save notification in DB
         const notification = await Notification.create({
           userId,
           title,
           message,
         });
 
+        // Log activity
         if (notification) {
           await ActivityLog.create({
             userId,
             activityType: 'Notification',
-            description: `Notification: ${title} send to ${userId}`,
+            description: `Notification "${title}" sent to user ${userId}`,
           });
         }
-        // Emit via socket
+
+        // Emit real-time socket notification
         this.io.to(`user_${userId}`).emit('notification:created', notification);
 
+        // Send push notification via Expo
         const user = await User.findByPk(userId);
-        console.log('jajaja token', user?.expoPushToken);
-
         if (user?.expoPushToken) {
-          await sendExpoNotification(user.expoPushToken, title, message);
+          try {
+            await sendExpoNotification(user.expoPushToken, title, message);
+          } catch (err) {
+            console.log(
+              'Push failed (likely Android standalone without FCM):',
+              err
+            );
+          }
         }
 
         callback?.({ status: 'success', data: notification });

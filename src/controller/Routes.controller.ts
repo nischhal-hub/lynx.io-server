@@ -34,14 +34,15 @@ class RouteController {
     }
 
     const newRoutes = routes.map((r) => ({
-      
-      start_location: r.startLocation,
-      end_location: r.endLocation,
-      routeName: r.routeName,
-      status: r.status ?? 'pending',
+      start_location: `${r.startLocation.name} | ${r.startLocation.latitude},${r.startLocation.longitude}`,
+      end_location: `${r.endLocation.name} | ${r.endLocation.latitude},${r.endLocation.longitude}`,
+      routeName: r.routeName ?? 'source-destination',
+      status: r.status ?? 'planned',
       vehicleId: r.vehicleId,
-      intermediate_locations: r.intermediateLocation ?? [],
-      distance: r.distance ?? null,
+      intermediate_locations: (r.intermediateLocation ?? []).map(
+        (loc: any) => `${loc.name} | ${loc.latitude},${loc.longitude}`
+      ),
+      distance: r.distance ?? 0,
       estimated_duration: r.estimatedDuration ?? null,
     }));
 

@@ -1,6 +1,6 @@
 import { Expo, ExpoPushMessage } from 'expo-server-sdk';
 
-// Create Expo SDK client
+// Create a new Expo SDK client
 const expo = new Expo();
 
 export async function sendExpoNotification(
