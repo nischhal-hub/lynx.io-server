@@ -15,7 +15,7 @@ class Route extends Model {
   @Column({
     type: DataType.UUID,
     primaryKey: true,
-    defaultValue: DataType.UUIDV4, // Auto-generates UUID
+    defaultValue: DataType.UUIDV4, 
   })
   declare id: string;
 
