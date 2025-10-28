@@ -1,6 +1,6 @@
 import { Expo, ExpoPushMessage } from 'expo-server-sdk';
 
-// Create a new Expo SDK client
+// Create Expo SDK client
 const expo = new Expo();
 
 export async function sendExpoNotification(
@@ -13,6 +13,7 @@ export async function sendExpoNotification(
     console.error(`Invalid Expo push token: ${pushToken}`);
     return;
   }
+  console.log(`Sending Expo notification to token: ${pushToken}`);
 
   const messages: ExpoPushMessage[] = [
     {

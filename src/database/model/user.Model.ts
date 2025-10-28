@@ -91,6 +91,11 @@ class User extends Model {
     allowNull: true,
   })
   declare expoPushToken: string;
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+  })
+  declare fcmToken: string;
 
   @Column({
     type: DataType.STRING,

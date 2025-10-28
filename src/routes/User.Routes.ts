@@ -18,6 +18,11 @@ router.post(
   protectedRoutes.isUserLoggedIn,
   UserController.handleSaveExpoToken
 );
+// router.post(
+//   '/fcm-token',
+//   protectedRoutes.isUserLoggedIn,
+//   UserController.handleSaveExpoToken
+// );
 router.get('/google', UserController.googleAuth);
 router.get('/callback/google', UserController.googleAuthCallback);
 router.patch(
