@@ -51,6 +51,7 @@ class Vehicle extends Model {
     validate: { notEmpty: true },
   })
   declare owner: string;
+  
 
   @Column({
     type: DataType.ENUM('two-wheeler', 'four-wheeler'),
@@ -59,6 +60,12 @@ class Vehicle extends Model {
   })
   declare vehicleType: string; 
 
+  @Column({
+    type: DataType.ENUM('Active', 'Maintenance', 'Available'),
+    allowNull: false,
+    defaultValue: 'Available',
+  })
+  declare status: 'Active' | 'Maintenance' | 'Available';
 }
 
 export default Vehicle;
