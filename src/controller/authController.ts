@@ -285,6 +285,23 @@ class UserController {
       res.status(200).json({ message: 'Expo token saved successfully' });
     }
   );
+  // public handleSaveFCMToken = asyncHandler(
+  //   async (req: Request, res: Response, next: NextFunction) => {
+  //     console.log('aaaaaaaaaaaaaa');
+  //     const { fcmToken } = req.body;
+  //     const userId = req.user?.id;
+  //     if (!userId) {
+  //       return res.status(401).json({ message: 'User not authenticated' });
+  //     }
+  //     const user = await User.findByPk(userId);
+  //     if (!user) {
+  //       return res.status(404).json({ message: 'User not found' });
+  //     }
+  //     user.fcmToken = fcmToken;
+  //     await user.save();
+  //     res.status(200).json({ message: 'Expo token saved successfully' });
+  //   }
+  // );
 
   public googleAuth(req: Request, res: Response, next: NextFunction) {
     passport.authenticate('google', { scope: ['profile', 'email'] })(
@@ -330,6 +347,7 @@ class UserController {
   public uploadImage = asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
       const userId = req.user?.id;
+      console.log('mihi', userId);
 
       if (!userId) {
         return res.status(401).json({ message: 'Unauthorized' });

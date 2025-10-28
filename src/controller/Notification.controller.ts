@@ -3,6 +3,7 @@ import Notification from '../database/model/Notification.Model';
 import User from '../database/model/user.Model';
 import { sendExpoNotification } from '../utils/ExpoNotification';
 import ActivityLog from '../database/model/RecentActiviity.Model';
+import { sendFirebaseNotification } from '../utils/FirebaseNotification';
 
 export default class SocketNotificationService {
   private static instance: SocketNotificationService;
@@ -76,6 +77,7 @@ export default class SocketNotificationService {
         if (user?.expoPushToken) {
           try {
             await sendExpoNotification(user.expoPushToken, title, message);
+            await sendFirebaseNotification(user.expoPushToken, title, message);
           } catch (err) {
             console.log(
               'Push failed (likely Android standalone without FCM):',
