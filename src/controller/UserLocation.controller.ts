@@ -21,10 +21,100 @@ const pickProps = (body: any) => ({
   longitude: body.longitude?.toString(),
   userId: body.userId,
 });
+const notifiedVehicles = new Map<string, Set<string>>();
 
 class UserLocationController {
   // Create new user location and notify nearby vehicles
- public createUserLocation = asyncHandler(
+  // public createUserLocation = asyncHandler(
+  //   async (req: Request, res: Response, next: NextFunction) => {
+  //     const { latitude, longitude } = req.body;
+  //     const userId = req.user?.id;
+
+  //     if (!latitude || !longitude || !userId) {
+  //       return next(
+  //         new AppError('Latitude, longitude, and userId are required', 400)
+  //       );
+  //     }
+
+  //     // 1️⃣ Save or update the user's latest location
+  //     const [newUserLocation] = await UserLocation.upsert(
+  //       {
+  //         userId,
+  //         latitude: String(latitude),
+  //         longitude: String(longitude),
+  //       },
+  //       { returning: true }
+  //     );
+
+  //     const latNum = parseFloat(latitude);
+  //     const lonNum = parseFloat(longitude);
+
+  //     // 2️⃣ Fetch latest location for each vehicle
+  //     const latestVehicleLocations = await Vehicle.findAll({
+  //       include: [
+  //         {
+  //           model: Device,
+  //           as: 'device',
+  //           include: [
+  //             {
+  //               model: Location,
+  //               as: 'locations',
+  //               limit: 1, // latest location only
+  //               order: [['timestamp', 'DESC']],
+  //             },
+  //           ],
+  //         },
+  //       ],
+  //     });
+
+  //     const nearbyResults: any[] = [];
+  //     const notificationService = SocketNotificationService.getInstance();
+
+  //     // 3️⃣ Compare distances & send notifications
+  //     for (const vehicle of latestVehicleLocations) {
+  //       // @ts-expect-error
+  //       const vehicleLoc = vehicle.device?.locations[0];
+  //       if (!vehicleLoc) continue;
+
+  //       const vehicleLat = parseFloat(vehicleLoc.latitude);
+  //       const vehicleLon = parseFloat(vehicleLoc.longitude);
+
+  //       const distance = getDistanceKm(latNum, lonNum, vehicleLat, vehicleLon);
+
+  //       if (distance < 0.2) {
+  //         nearbyResults.push({
+  //           vehicleId: vehicle.id,
+  //           numberPlate: vehicle.numberPlate,
+  //           distance: `${distance.toFixed(3)} km`,
+  //         });
+
+  //         await notificationService.createNotification(
+  //           String(userId),
+  //           'Vehicle Nearby',
+  //           `Vehicle ${vehicle.numberPlate} is ${distance.toFixed(
+  //             3
+  //           )} km away from you`
+  //         );
+  //       }
+  //     }
+
+  //     // 4️⃣ Emit socket update to user
+  //     if (socketService) {
+  //       socketService.emitUserLocationUpdated(newUserLocation.toJSON());
+  //     }
+
+  //     // 5️⃣ Send response
+  //     res.status(201).json({
+  //       status: 'success',
+  //       data: {
+  //         newUserLocation,
+  //         nearbyVehicles: nearbyResults,
+  //       },
+  //     });
+  //   }
+  // );
+
+  public createUserLocation = asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
       const { latitude, longitude } = req.body;
       const userId = req.user?.id;
@@ -69,10 +159,10 @@ class UserLocationController {
       const nearbyResults: any[] = [];
       const notificationService = SocketNotificationService.getInstance();
 
-      // 3️⃣ Compare distances & send notifications
+      // 3️⃣ Compare distances & send notifications only once per vehicle
       for (const vehicle of latestVehicleLocations) {
         // @ts-expect-error
-        const vehicleLoc = vehicle.device?.locations[0];
+        const vehicleLoc = vehicle.device?.locations?.[0];
         if (!vehicleLoc) continue;
 
         const vehicleLat = parseFloat(vehicleLoc.latitude);
@@ -80,7 +170,15 @@ class UserLocationController {
 
         const distance = getDistanceKm(latNum, lonNum, vehicleLat, vehicleLon);
 
-        if (distance < 0.2) {
+        // Initialize for user if not exists
+        if (!notifiedVehicles.has(String(userId))) {
+          notifiedVehicles.set(String(userId), new Set());
+        }
+
+        const userNotifiedSet = notifiedVehicles.get(String(userId))!;
+
+        if (distance < 0.2 && !userNotifiedSet.has(String(vehicle.id))) {
+          // ✅ User just entered the nearby zone
           nearbyResults.push({
             vehicleId: vehicle.id,
             numberPlate: vehicle.numberPlate,
@@ -94,6 +192,12 @@ class UserLocationController {
               3
             )} km away from you`
           );
+
+          // Mark this vehicle as notified for this user
+          userNotifiedSet.add(String(vehicle.id));
+        } else if (distance >= 0.2 && userNotifiedSet.has(String(vehicle.id))) {
+          // 🚗 User moved out of range — reset so we can notify again next time
+          userNotifiedSet.delete(String(vehicle.id));
         }
       }
 

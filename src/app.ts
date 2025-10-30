@@ -9,6 +9,7 @@ import userLocationRoutes from './routes/UserLocation.Routes';
 import userRecenetActivityRoutes from './routes/RecentActivites.routes';
 import GeoFenceRoutes from './routes/GeoFence.Routes';
 import dashboardRoutes from './routes/dashboard.Routes';
+import notificationRoutes from './routes/Notification.Routes';
 
 import './database/connection';
 import cookieParser from 'cookie-parser';
@@ -37,6 +38,7 @@ app.use('/api/v1/routes', routesRoutes);
 app.use('/api/v1/userlocation', userLocationRoutes);
 app.use('/api/v1/recentactivity', userRecenetActivityRoutes);
 app.use('/api/v1/geofence', GeoFenceRoutes);
+app.use('/api/v1/notification', notificationRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', message: 'Server is healthy' });
