@@ -174,23 +174,15 @@ import { Server, Socket } from 'socket.io';
 import Location from '../database/model/Location.Model';
 import Device from '../database/model/Device.Model';
 import Vehicle from '../database/model/Vechile.Model';
-import Geofence from '../database/model/GeofencesArea';
-import getDistanceKm from '../utils/distanceFormula';
-import SocketNotificationService from './Notification.controller';
-import Notification from '../database/model/Notification.Model';
 
-const pickProps = (body: any) => {
-  if (!body.deviceId) {
-    throw new Error('deviceId is required and must be a valid UUID');
-  }
-  return {
-    deviceId: body.deviceId,
-    latitude: String(body.lat ?? body.latitude),
-    longitude: String(body.lng ?? body.longitude),
-    altitude: body.altitude ? String(body.altitude) : null,
-    speed: body.speed ? String(body.speed) : null,
-  };
-};
+const pickProps = (body: any) => ({
+  deviceId: body.deviceId, // ✅ no fallback to 'unknown_device'
+  latitude: String(body.lat ?? body.latitude),
+  longitude: String(body.lng ?? body.longitude),
+  altitude: body.altitude ? String(body.altitude) : null,
+  speed: body.speed ? String(body.speed) : null,
+  timestamp: body.timestamp ? new Date(body.timestamp) : new Date(),
+});
 
 export default class LocationController {
   private static instance: LocationController;
@@ -212,7 +204,7 @@ export default class LocationController {
 
   private initialize() {
     this.io.on('connection', (socket: Socket) => {
-      console.log('Vehicle connected to location service');
+      console.log('✅ Vehicle connected to location service');
 
       socket.on('joinLocationRoom', (locationId: string) => {
         socket.join(`location_${locationId}`);
@@ -233,43 +225,134 @@ export default class LocationController {
     });
   }
 
-  /**
-   * 🔹 Handle new location events from vehicles
-   */
+  // ✅ Fixed location creation method
   private createLocation(socket: Socket) {
     socket.on('location:create', async (payload, callback) => {
       try {
-        const location = payload;
-        const newLocation = await Location.create(pickProps(location));
+        // ✅ Handle if payload is a stringified JSON
+        if (typeof payload === 'string') {
+          try {
+            payload = JSON.parse(payload);
+          } catch {
+            return callback?.({
+              status: 'error',
+              message: 'Invalid JSON format in payload',
+            });
+          }
+        }
 
-        // Emit latest location update globally
-        this.io.emit('vehicle_location_updated', newLocation);
+        // ✅ Validate deviceId
+        if (!payload.deviceId || typeof payload.deviceId !== 'string') {
+          return callback?.({
+            status: 'error',
+            message: 'Device ID is required and must be a valid UUID',
+          });
+        }
 
-        // ✅ Geofence checking for this location
-        await this.checkGeofences(newLocation);
+        // ✅ Check if device exists
+        const deviceExists = await Device.findByPk(payload.deviceId);
+        if (!deviceExists) {
+          return callback?.({
+            status: 'error',
+            message: 'Device not found in database',
+          });
+        }
 
-        callback?.({
-          status: 'success',
-          data: newLocation,
-        });
-      } catch (error: any) {
-        callback?.({ status: 'error', message: error.message });
+        // ✅ Create location entry
+        const location = await Location.create(pickProps(payload));
+
+        // Emit to listeners
+        this.io.emit('vehicle_location_updated', location);
+
+        callback?.({ status: 'success', data: location });
+      } catch (err: any) {
+        console.error('❌ Error saving location:', err.message);
+        callback?.({ status: 'error', message: err.message });
       }
     });
   }
 
-  /**
-   * 🔹 Vehicle room handling
-   */
+  // private handleVehicleRoom(socket: Socket) {
+  //   socket.on('vehicleRoom:join', async (vehicleId: string, callback) => {
+  //     const room = `vehicle_${vehicleId}`;
+  //     socket.join(room);
+  //     console.log(`Socket ${socket.id} joined ${room}`);
+
+  //     const count = this.io.sockets.adapter.rooms.get(room)?.size || 0;
+
+  //     try {
+  //       // Fetch vehicle
+  //       const vehicle = await Vehicle.findByPk(vehicleId, {
+  //         include: [
+  //           {
+  //             model: Device,
+  //             as: 'device',
+  //           },
+  //         ],
+  //       });
+
+  //       // @ts-ignore
+  //       if (!vehicle || !vehicle.device) {
+  //         return callback?.({
+  //           status: 'error',
+  //           message: 'Vehicle or device not found',
+  //         });
+  //       }
+
+  //       // Get latest location for this device
+  //       const latestLocationRaw = await Location.findOne({
+  //         // @ts-ignore
+  //         where: { deviceId: vehicle.deviceId },
+  //         order: [['timestamp', 'DESC']],
+  //       });
+
+  //       const latestLocation = latestLocationRaw
+  //         ? {
+  //             latitude: Number(latestLocationRaw.latitude),
+  //             longitude: Number(latestLocationRaw.longitude),
+  //           }
+  //         : null;
+
+  //       // Broadcast to room
+  //       this.io.to(room).emit('vehicle:roomUpdate', {
+  //         vehicleId,
+  //         count,
+  //         location: latestLocation,
+  //       });
+
+  //       callback?.({
+  //         status: 'success',
+  //         vehicleId,
+  //         count,
+  //         location: latestLocation,
+  //       });
+  //     } catch (err: any) {
+  //       console.error('Error fetching vehicle/location:', err);
+  //       callback?.({ status: 'error', message: err.message });
+  //     }
+  //   });
+
+  //   socket.on('vehicleRoom:leave', (vehicleId: string, callback) => {
+  //     const room = `vehicle_${vehicleId}`;
+  //     socket.leave(room);
+  //     const count = this.io.sockets.adapter.rooms.get(room)?.size || 0;
+  //     this.io.to(room).emit('vehicle:roomUpdate', { vehicleId, count });
+  //     callback?.({ status: 'success', vehicleId, count });
+  //   });
+  // }
+
   private handleVehicleRoom(socket: Socket) {
+    // Join vehicle room
     socket.on('vehicleRoom:join', async (vehicleId: string, callback) => {
       const room = `vehicle_${vehicleId}`;
       socket.join(room);
       console.log(`Socket ${socket.id} joined ${room}`);
 
+      // Current occupancy
       const count = this.io.sockets.adapter.rooms.get(room)?.size || 0;
 
       try {
+        // Get vehicle + latest location
         const vehicles = await Vehicle.findAll({
           include: [
             {
@@ -279,7 +362,7 @@ export default class LocationController {
                 {
                   model: Location,
                   as: 'locations',
-                  limit: 1,
+                  limit: 1, // latest location only
                   order: [['timestamp', 'DESC']],
                 },
               ],
@@ -287,10 +370,12 @@ export default class LocationController {
           ],
         });
 
+        // Assuming you want the first vehicle for now
         const vehicle = vehicles[0];
         // @ts-ignore
         const latestLocationRaw = vehicle?.device?.locations?.[0] || null;
 
+        // Convert coordinates to numbers
         const latestLocation = latestLocationRaw
           ? {
               latitude: Number(latestLocationRaw.latitude),
@@ -298,6 +383,9 @@ export default class LocationController {
             }
           : null;
 
+        console.log('Latest location:', latestLocation);
+
+        // Broadcast to room
         this.io.to(room).emit('vehicle:roomUpdate', {
           vehicleId,
           count,
@@ -319,91 +407,30 @@ export default class LocationController {
       }
     });
 
+    // Leave vehicle room
     socket.on('vehicleRoom:leave', (vehicleId: string, callback) => {
       const room = `vehicle_${vehicleId}`;
       socket.leave(room);
       console.log(`Socket ${socket.id} left ${room}`);
 
       const count = this.io.sockets.adapter.rooms.get(room)?.size || 0;
-      this.io.to(room).emit('vehicle:roomUpdate', { vehicleId, count });
 
+      this.io.to(room).emit('vehicle:roomUpdate', { vehicleId, count });
       callback?.({ status: 'success', vehicleId, count });
     });
   }
 
-  /**
-   * 🔹 Check if a vehicle/device is active
-   */
   private checkVehicleActive(socket: Socket) {
     socket.on('vehicle:isActive', async (deviceId: string, callback) => {
       try {
         const latest = await Location.findOne({
           where: { deviceId },
-          order: [['createdAt', 'DESC']],
+          order: [['timestamp', 'DESC']],
         });
         callback?.({ status: 'success', data: latest });
-      } catch (error: any) {
-        callback?.({ status: 'error', message: error.message });
+      } catch (err: any) {
+        callback?.({ status: 'error', message: err.message });
       }
     });
-  }
-
-  /**
-   * 🔹 Check if vehicle entered or exited geofences
-   */
-  private async checkGeofences(location: any) {
-    const latNum = parseFloat(location.latitude);
-    const lonNum = parseFloat(location.longitude);
-
-    const notificationService = SocketNotificationService.getInstance();
-    const fences = await Geofence.findAll({ where: { active: true } });
-    if (!fences.length) return;
-
-    const device = await Device.findByPk(location.deviceId, {
-      include: [
-        {
-          model: Vehicle,
-          as: 'vehicle',
-          attributes: ['id', 'numberPlate', 'driverId'],
-        },
-      ],
-    });
-
-    // @ts-ignore
-    if (!device?.vehicle?.driverId) return;
-    // @ts-ignore
-    const vehiclePlate = device.vehicle.numberPlate ?? 'Unknown';
-    // @ts-ignore
-    const userId = device.vehicle.driverId;
-
-    for (const fence of fences) {
-      const distance = getDistanceKm(
-        latNum,
-        lonNum,
-        fence.center_lat,
-        fence.center_lng
-      );
-      const inside = distance * 1000 <= fence.radius;
-      const type = inside ? 'Entry' : 'Exit';
-      const title = `Vehicle ${type} Geofence`;
-
-      const message = inside
-        ? `Your vehicle ${vehiclePlate} entered ${fence.name}`
-        : `Your vehicle ${vehiclePlate} exited ${fence.name}`;
-
-      // 🚫 Prevent duplicate notifications
-      const lastNotification = await Notification.findOne({
-        where: { userId, title },
-        order: [['createdAt', 'DESC']],
-      });
-
-      if (!lastNotification) {
-        await notificationService.createNotification(
-          String(userId),
-          title,
-          message
-        );
-      }
-    }
   }
 }

@@ -83,9 +83,7 @@ export class VehicleController {
   );
   public getAllVehiclesByUser = asyncHandler(
     async (req: Request, res: Response, _next: NextFunction) => {
-      const vehicles = await Vehicle.findAll({
-        where: { driverId: req.user?.id },
-      });
+      const vehicles = await Vehicle.findAll();
 
       res.status(200).json({
         status: 'success',
@@ -211,7 +209,7 @@ export class VehicleController {
     async (req: Request, res: Response) => {
       const { deviceId } = req.params;
       const { date } = req.query;
-      console.log("hisklsjgjsl")
+      console.log('hisklsjgjsl');
 
       // Validate inputs
       if (!deviceId || !date) {
@@ -264,9 +262,7 @@ export class VehicleController {
   );
 }
 
-
 export default new VehicleController();
 function isUUID(deviceId: string) {
   throw new Error('Function not implemented.');
 }
-
