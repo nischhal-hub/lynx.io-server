@@ -14,11 +14,10 @@ import notificationRoutes from './routes/Notification.Routes';
 import './database/connection';
 import cookieParser from 'cookie-parser';
 import { setupAssociations } from './database/connection';
-import mqtt from 'mqtt';
-import './mqttService';
 import { leakyBucketMiddleware } from './middleware/rate-limiter';
 import helmet from 'helmet';
-const client = mqtt.connect('mqtt://broker.emqx.io:1883');
+import './mqttService'; // ✅ Important: import here so MQTT starts
+
 dotenv.config();
 const app = express();
 
@@ -30,6 +29,7 @@ app.use(leakyBucketMiddleware({ capacity: 5, leakRate: 0.005 }));
 
 setupAssociations();
 
+// ✅ Define all routes
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/vehicle', vehicleRoutes);
 app.use('/api/v1/location', locationRoutes);
@@ -40,25 +40,15 @@ app.use('/api/v1/recentactivity', userRecenetActivityRoutes);
 app.use('/api/v1/geofence', GeoFenceRoutes);
 app.use('/api/v1/notification', notificationRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
+
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', message: 'Server is healthy' });
 });
+
 app.get('/', (req, res) => {
   res.json({
     message: 'Lynx Backend API',
   });
 });
-
-// client.on("connect",()=>{
-//   client.subscribe("emqx/esp32",(err)=>{
-//     if(!err){
-//       client.publish("emqx/esp32","Hello from NodeJS")
-//     }
-//   })
-// })
-
-// client.on("message",(topic,message)=>{
-//   console.log(topic,message.toString());
-// })
 
 export default app;

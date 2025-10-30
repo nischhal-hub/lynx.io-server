@@ -1,25 +1,25 @@
-import mqtt from "mqtt";
-import Location from "./database/model/Location.Model";
-import LocationController from "./controller/Location.controller";
-import Device from "./database/model/Device.Model";
-import User from "./database/model/user.Model";
-import Vehicle from "./database/model/Vechile.Model";
+import mqtt from 'mqtt';
+import Location from './database/model/Location.Model';
+import LocationController from './controller/Location.controller';
+import Device from './database/model/Device.Model';
+import User from './database/model/user.Model';
+import Vehicle from './database/model/Vechile.Model';
 
-const MQTT_URL = process.env.MQTT_URL || "mqtt://broker.emqx.io:1883";
+const MQTT_URL = process.env.MQTT_URL || 'mqtt://broker.emqx.io:1883';
 const client = mqtt.connect(MQTT_URL, {
-  clientId: "backend-server-" + Math.random().toString(16).slice(2),
+  clientId: 'backend-server-' + Math.random().toString(16).slice(2),
   clean: true,
 });
 
-client.on("connect", () => {
-  console.log("✅ MQTT connected");
-  client.subscribe("esp32/loc", (err) => {
-    if (!err) console.log("📡 Subscribed to topic: esp32/loc");
-    else console.error("❌ MQTT subscribe error:", err);
+client.on('connect', () => {
+  console.log('✅ MQTT connected');
+  client.subscribe('esp32/loc', (err) => {
+    if (!err) console.log('📡 Subscribed to topic: esp32/loc');
+    else console.error('❌ MQTT subscribe error:', err);
   });
 });
 
-client.on("message", async (topic, message) => {
+client.on('message', async (topic, message) => {
   const msgString = message.toString();
   try {
     const payload = JSON.parse(msgString);
@@ -30,38 +30,45 @@ client.on("message", async (topic, message) => {
       longitude: payload.longitude,
       altitude: payload.altitude,
       speed: payload.speed,
-      timestamp: new Date(), 
+      timestamp: new Date(),
     });
 
     // console.log("Location saved:", location.toJSON());
-    const device = await Device.findByPk(payload.deviceId,{include:[
-      {
-        model: Vehicle,
-        as: 'vehicle',
-        include: [{
-          model: User,
-          as: "driver"
-        }]
-      }
-    ]});
-    
+    const device = await Device.findByPk(payload.deviceId, {
+      include: [
+        {
+          model: Vehicle,
+          as: 'vehicle',
+          include: [
+            {
+              model: User,
+              as: 'driver',
+            },
+          ],
+        },
+      ],
+    });
+
     const deviceJson = device?.toJSON();
-    if(!deviceJson || !deviceJson.vehicle || !deviceJson.vehicle.driver){
-      console.log("No associated vehicle or driver found for device:", payload.deviceId);
+    if (!deviceJson || !deviceJson.vehicle || !deviceJson.vehicle.driver) {
+      console.log(
+        'No associated vehicle or driver found for device:',
+        payload.deviceId
+      );
       return;
     }
     const userId = deviceJson.vehicle.driver.id;
     // console.log("Emitting location to user:", userId);
     const locationController = LocationController.getInstance();
-    locationController.io.to(`user_${userId}`).emit('vehicle_location_updated', location.toJSON());
-
+    locationController.io
+      .to(`user_${userId}`)
+      .emit('vehicle_location_updated', location.toJSON());
   } catch (err) {
-    console.error("❌ Error processing MQTT message:", err);
+    console.error('❌ Error processing MQTT message:', err);
   }
 });
 
 export default client;
-
 
 //     device: {
 //   id: '2f95439e-2218-4bfd-acd6-66f516dbad4d',
@@ -85,7 +92,7 @@ export default client;
 //       firstName: 'John',
 //       lastName: 'Doe',
 //       email: 'nischal@gmail.com',
-//       password: '$2b$10$Khh0dGFLFQQgMMPkRLMIcOQeEQJIQOhfDyA03sR5JjiC3Y92CEjHe',      
+//       password: '$2b$10$Khh0dGFLFQQgMMPkRLMIcOQeEQJIQOhfDyA03sR5JjiC3Y92CEjHe',
 //       roles: 'user',
 //       address: '123 Main Street, City, Country',
 //       phoneNumber: '+9779841234567',
@@ -101,4 +108,4 @@ export default client;
 //       updatedAt: 2025-09-07T02:51:49.482Z
 //     }
 //   }
-// } 
+// }
