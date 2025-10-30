@@ -163,49 +163,110 @@ export class VehicleController {
     }
   );
 
+  // public getVehicleHistoryByDevice = asyncHandler(
+  //   async (req: Request, res: Response) => {
+  //     const { deviceId } = req.params;
+  //     const { date } = req.query;
+
+  //     if (!deviceId || !date) {
+  //       return res
+  //         .status(400)
+  //         .json({ message: 'deviceId and date are required' });
+  //     }
+
+  //     const start = new Date(`${date}T00:00:00`);
+  //     const end = new Date(`${date}T23:59:59`);
+
+  //     const device = await Device.findByPk(deviceId, {
+  //       include: [
+  //         {
+  //           model: Vehicle as ModelCtor<Vehicle>,
+  //           as: 'vehicle',
+  //         },
+  //         {
+  //           model: Location as ModelCtor<Location>,
+  //           as: 'locations',
+  //           where: {
+  //             createdAt: { [Op.between]: [start, end] },
+  //           },
+  //           required: false, // allow empty locations
+  //           order: [['createdAt', 'ASC']],
+  //         },
+  //       ],
+  //     });
+
+  //     if (!device) {
+  //       return res.status(404).json({ message: 'Device not found' });
+  //     }
+
+  //     res.status(200).json({
+  //       status: 'success',
+  //       message: 'History retrieved successfully',
+  //       data: (device as any).locations,
+  //     });
+  //   }
+  // );
+
   public getVehicleHistoryByDevice = asyncHandler(
     async (req: Request, res: Response) => {
       const { deviceId } = req.params;
       const { date } = req.query;
+      console.log("hisklsjgjsl")
 
+      // Validate inputs
       if (!deviceId || !date) {
         return res
           .status(400)
           .json({ message: 'deviceId and date are required' });
       }
 
+      // if (!isUUID(deviceId)) {
+      //   return res.status(400).json({ message: 'Invalid deviceId format' });
+      // }
+
       const start = new Date(`${date}T00:00:00`);
       const end = new Date(`${date}T23:59:59`);
 
-      const device = await Device.findByPk(deviceId, {
-        include: [
-          {
-            model: Vehicle as ModelCtor<Vehicle>,
-            as: 'vehicle',
-          },
-          {
-            model: Location as ModelCtor<Location>,
-            as: 'locations',
-            where: {
-              createdAt: { [Op.between]: [start, end] },
+      try {
+        const device = await Device.findByPk(deviceId, {
+          include: [
+            { model: Vehicle as ModelCtor<Vehicle>, as: 'vehicle' },
+            {
+              model: Location as ModelCtor<Location>,
+              as: 'locations',
+              where: {
+                timestamp: { [Op.between]: [start, end] }, // ✅ Use timestamp
+              },
+              required: false, // allow devices with no locations
             },
-            required: false, // allow empty locations
-            order: [['createdAt', 'ASC']],
-          },
-        ],
-      });
+          ],
+          order: [[{ model: Location, as: 'locations' }, 'timestamp', 'ASC']],
+        });
 
-      if (!device) {
-        return res.status(404).json({ message: 'Device not found' });
+        if (!device) {
+          return res.status(404).json({ message: 'Device not found' });
+        }
+
+        res.status(200).json({
+          status: 'success',
+          message: 'History retrieved successfully',
+          results: (device as any).locations.length,
+          data: (device as any).locations,
+        });
+      } catch (error: any) {
+        console.error('Error fetching vehicle history:', error);
+        res.status(500).json({
+          status: 'error',
+          message: 'Failed to retrieve vehicle history',
+        });
       }
-
-      res.status(200).json({
-        status: 'success',
-        message: 'History retrieved successfully',
-        data: (device as any).locations,
-      });
     }
   );
 }
 
+
 export default new VehicleController();
+function isUUID(deviceId: string) {
+  throw new Error('Function not implemented.');
+}
+

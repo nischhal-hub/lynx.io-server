@@ -4,6 +4,8 @@ import User from '../database/model/user.Model';
 import { sendExpoNotification } from '../utils/ExpoNotification';
 import ActivityLog from '../database/model/RecentActiviity.Model';
 import { sendFirebaseNotification } from '../utils/FirebaseNotification';
+import asyncHandler from '../utils/AsyncHandler';
+import { Request, Response } from 'express';
 
 export default class SocketNotificationService {
   private static instance: SocketNotificationService;
@@ -22,6 +24,17 @@ export default class SocketNotificationService {
     }
     return SocketNotificationService.instance;
   }
+
+  public static getNotifications = asyncHandler(
+    async (req: Request, res: Response) => {
+      const userId = req?.user?.id;
+      const notifications = await Notification.findAll({
+        where: { userId },
+        order: [['createdAt', 'DESC']],
+      });
+      res.status(200).json({ status: 'success', data: notifications });
+    }
+  );
 
   private initialize() {
     this.io.on('connection', (socket: Socket) => {
@@ -76,6 +89,7 @@ export default class SocketNotificationService {
         const user = await User.findByPk(userId);
         if (user?.expoPushToken) {
           try {
+            console.log('Sending Expo notification...');
             await sendExpoNotification(user.expoPushToken, title, message);
             await sendFirebaseNotification(user.expoPushToken, title, message);
           } catch (err) {

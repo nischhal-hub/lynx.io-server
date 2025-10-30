@@ -34,6 +34,12 @@ router.patch(
 
 // Profile & Settings (Protected)
 router.get('/me', protectedRoutes.isUserLoggedIn, UserController.getProfile);
+router.post(
+  '/image',
+  singleUpload,
+  protectedRoutes.isUserLoggedIn,
+  UserController.uploadImage
+);
 router.put(
   '/me/update',
   protectedRoutes.isUserLoggedIn,

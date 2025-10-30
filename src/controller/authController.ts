@@ -347,7 +347,6 @@ class UserController {
   public uploadImage = asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
       const userId = req.user?.id;
-      console.log('mihi', userId);
 
       if (!userId) {
         return res.status(401).json({ message: 'Unauthorized' });

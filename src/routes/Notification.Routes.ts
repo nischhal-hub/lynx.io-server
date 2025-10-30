@@ -83,3 +83,15 @@
 // );
 
 // export default router;
+
+import { Router } from 'express';
+import SocketNotificationService from '../controller/Notification.controller';
+import protectedRoutes from '../middleware/protectedRoutes';
+
+const router = Router();
+router.get(
+  '/',
+  protectedRoutes.isUserLoggedIn,
+  SocketNotificationService.getNotifications
+);
+export default router;
