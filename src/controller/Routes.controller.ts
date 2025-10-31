@@ -127,29 +127,94 @@ class RouteController {
     res.status(200).json({ status: 'success', data: route });
   });
 
-  public updateRoute = asyncHandler(async (req, res) => {
+  // public updateRoute = asyncHandler(async (req, res) => {
+  //   const route = await Route.findByPk(req.params.id);
+  //   if (!route) throw new AppError('Route not found', 404);
+
+  //   const allowed = [
+  //     'routeName',
+  //     'startLocation',
+  //     'endLocation',
+  //     'intermediateLocations',
+  //     'distance',
+  //     'estimatedDuration',
+  //     'status',
+  //     'startedAt',
+  //     'completedAt',
+  //   ] as const;
+
+  //   for (const key of allowed) {
+  //     if (req.body[key] !== undefined) {
+  //       // @ts-ignore
+  //       route[key] = req.body[key];
+  //     }
+  //   }
+  //   await route.save();
+  //   res.status(200).json({ status: 'success', data: route });
+  // });
+
+  public updateRoute = asyncHandler(async (req: Request, res: Response) => {
     const route = await Route.findByPk(req.params.id);
     if (!route) throw new AppError('Route not found', 404);
 
-    const allowed = [
-      'routeName',
-      'startLocation',
-      'endLocation',
-      'intermediateLocations',
-      'distance',
-      'estimatedDuration',
-      'status',
-      'startedAt',
-      'completedAt',
-    ] as const;
+    console.log('Incoming body:', req.body);
 
-    for (const key of allowed) {
-      if (req.body[key] !== undefined) {
-        // @ts-ignore
-        route[key] = req.body[key];
-      }
+    const {
+      routeName,
+      startLocation,
+      start_location,
+      endLocation,
+      end_location,
+      intermediateLocation,
+      intermediate_locations,
+      distance,
+      estimatedDuration,
+      estimated_duration,
+      status,
+      vehicleId,
+    } = req.body;
+
+    // ✅ handle start location
+    if (startLocation) {
+      route.start_location = `${startLocation.name} | ${startLocation.latitude},${startLocation.longitude}`;
+    } else if (start_location) {
+      route.start_location = start_location;
     }
+
+    // ✅ handle end location
+    if (endLocation) {
+      route.end_location = `${endLocation.name} | ${endLocation.latitude},${endLocation.longitude}`;
+    } else if (end_location) {
+      route.end_location = end_location;
+    }
+
+    // ✅ handle intermediate locations
+    if (intermediateLocation && Array.isArray(intermediateLocation)) {
+      route.intermediate_locations = intermediateLocation.map(
+        (loc: any) => `${loc.name} | ${loc.latitude},${loc.longitude}`
+      );
+    } else if (
+      intermediate_locations &&
+      Array.isArray(intermediate_locations)
+    ) {
+      route.intermediate_locations = intermediate_locations;
+    }
+
+    // ✅ handle other fields
+    if (routeName !== undefined) route.routeName = routeName;
+    if (distance !== undefined) route.distance = distance;
+    if (estimatedDuration !== undefined)
+      route.estimated_duration = estimatedDuration;
+    else if (estimated_duration !== undefined)
+      route.estimated_duration = estimated_duration;
+    if (status !== undefined) route.status = status;
+    if (vehicleId !== undefined) {
+      // @ts-ignore
+      route.vehicleId = vehicleId;
+    }
+
     await route.save();
+
     res.status(200).json({ status: 'success', data: route });
   });
 
