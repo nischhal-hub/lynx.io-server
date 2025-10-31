@@ -68,11 +68,7 @@ export class VehicleController {
   public getAllVehicles = asyncHandler(
     async (req: Request, res: Response, _next: NextFunction) => {
       console.log('Vehicle read', req.user?.id);
-      const vehicles = await Vehicle.findAll({
-        where: {
-          driverId: req.user?.id,
-        },
-      });
+      const vehicles = await Vehicle.findAll();
 
       res.status(200).json({
         status: 'success',
