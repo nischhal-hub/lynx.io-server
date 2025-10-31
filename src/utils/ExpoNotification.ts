@@ -13,7 +13,6 @@ export async function sendExpoNotification(
     console.error(`Invalid Expo push token: ${pushToken}`);
     return;
   }
-  console.log(`Sending Expo notification to token: ${pushToken}`);
 
   const messages: ExpoPushMessage[] = [
     {
@@ -25,7 +24,7 @@ export async function sendExpoNotification(
     },
   ];
 
-  try {
+try {
     const tickets = await expo.sendPushNotificationsAsync(messages);
     console.log('Expo push response:', tickets);
   } catch (error) {

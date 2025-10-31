@@ -91,7 +91,6 @@ export default class SocketNotificationService {
           try {
             console.log('Sending Expo notification...');
             await sendExpoNotification(user.expoPushToken, title, message);
-            await sendFirebaseNotification(user.expoPushToken, title, message);
           } catch (err) {
             console.log(
               'Push failed (likely Android standalone without FCM):',

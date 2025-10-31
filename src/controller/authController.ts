@@ -269,10 +269,8 @@ class UserController {
 
   public handleSaveExpoToken = asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
-      console.log('aaaaaaaaaaaaaa');
       const { expoToken } = req.body;
       const userId = req.user?.id;
-      console.log('mihi', userId);
       if (!userId) {
         return res.status(401).json({ message: 'User not authenticated' });
       }

@@ -6,6 +6,8 @@ import { singleUpload } from '../middleware/multer';
 import { leakyBucketMiddleware } from '../middleware/rate-limiter';
 
 router.use(leakyBucketMiddleware({ capacity: 2, leakRate: 30 }));
+// router.use(leakyBucketMiddleware({ capacity: 1, leakRate: 1 / (5 * 60 * 1000), }));
+
 
 router.post('/register', UserController.register);
 router.post('/login', UserController.login);
